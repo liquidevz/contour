@@ -72,8 +72,8 @@ export default function EditTaskScreen() {
                 description,
                 status,
                 priority,
-                due_date: date.toISOString(),
-                ...(contactId ? { contact_id: contactId } : {})
+                dueDate: date.toISOString(),
+                ...(contactId ? { contactId: contactId } : {})
             };
 
             if (isEditing) {
