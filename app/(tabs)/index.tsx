@@ -7,9 +7,12 @@
 
 import { borderRadius, elevation, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
+import { GET_ALL_TASKS, GET_CONTACTS } from '@/graphql/queries';
+import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import LottieView from 'lottie-react-native';
+import React, { useCallback, useState } from 'react';
 import {
   Dimensions,
   ScrollView,
@@ -34,6 +37,34 @@ export default function HomeScreen() {
   const { theme, colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  const [contactsCount, setContactsCount] = useState(0);
+  const [pendingTasksCount, setPendingTasksCount] = useState(0);
+
+  const fetchStats = async () => {
+    try {
+      // Fetch Contacts
+      const contactsResult = await executeGraphQL(GET_CONTACTS.loc?.source.body || '');
+      if (contactsResult.data?.contactsCollection?.edges) {
+        setContactsCount(contactsResult.data.contactsCollection.edges.length);
+      }
+
+      // Fetch Tasks
+      const tasksResult = await executeGraphQL(GET_ALL_TASKS.loc?.source.body || '', {});
+      if (tasksResult.data?.tasksCollection?.edges) {
+        const tasks = tasksResult.data.tasksCollection.edges.map((e: any) => e.node);
+        const pending = tasks.filter((t: any) => t.status === 'pending').length;
+        setPendingTasksCount(pending);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchStats();
+    }, [])
+  );
 
   const navigateTo = (route: string) => {
     // @ts-ignore
@@ -50,6 +81,8 @@ export default function HomeScreen() {
       id: 'contacts',
       title: 'Contacts',
       icon: 'people' as const,
+      lottie: require('@/assets/animations/contact.json'),
+      lottieStyle: { width: 250, height: 250, bottom: -80, right: -80 },
       onPress: navigateToContacts,
       accent: theme.textPrimary,
     },
@@ -57,6 +90,8 @@ export default function HomeScreen() {
       id: 'tasks',
       title: 'Tasks',
       icon: 'checkbox' as const,
+      lottie: require('@/assets/animations/Task Loader.json'),
+      lottieStyle: { width: 260, height: 260, bottom: -85, right: -85 },
       onPress: () => router.push('/tasks'),
       accent: theme.accent,
     },
@@ -64,6 +99,8 @@ export default function HomeScreen() {
       id: 'meetings',
       title: 'Meetings',
       icon: 'calendar' as const,
+      lottie: require('@/assets/animations/meeting.json'),
+      lottieStyle: { width: 500, height: 500, bottom: -220, right: -200 },
       onPress: () => router.push('/meetings'),
       accent: theme.textPrimary,
     },
@@ -71,6 +108,8 @@ export default function HomeScreen() {
       id: 'transactions',
       title: 'Transactions',
       icon: 'card' as const,
+      lottie: require('@/assets/animations/Money.json'),
+      lottieStyle: { width: 200, height: 200, bottom: -75, right: -40 },
       onPress: () => router.push('/transactions'),
       accent: theme.textSecondary,
     },
@@ -117,11 +156,11 @@ export default function HomeScreen() {
         {/* Quick Stats */}
         <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: theme.textPrimary }]}>
-            <Text style={[styles.statNumber, { color: theme.textInverse }]}>24</Text>
+            <Text style={[styles.statNumber, { color: theme.textInverse }]}>{contactsCount}</Text>
             <Text style={[styles.statLabel, { color: theme.textInverse, opacity: 0.8 }]}>Active Contacts</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: theme.backgroundSecondary }]}>
-            <Text style={[styles.statNumber, { color: theme.textPrimary }]}>8</Text>
+            <Text style={[styles.statNumber, { color: theme.textPrimary }]}>{pendingTasksCount}</Text>
             <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Pending Tasks</Text>
           </View>
         </Animated.View>
@@ -139,18 +178,42 @@ export default function HomeScreen() {
                   {
                     backgroundColor: theme.cardBackground,
                     ...elevation.md,
+                    overflow: 'hidden',
                   },
                 ]}
                 onPress={card.onPress}
                 activeOpacity={0.8}
               >
+
+                {/* @ts-ignore */}
+                {/* @ts-ignore */}
+                {card.lottie && (
+                  <LottieView
+                    source={card.lottie}
+                    style={{
+                      position: 'absolute',
+                      // @ts-ignore
+                      bottom: card.lottieStyle?.bottom ?? -80,
+                      // @ts-ignore
+                      right: card.lottieStyle?.right ?? -80,
+                      // @ts-ignore
+                      width: card.lottieStyle?.width ?? 250,
+                      // @ts-ignore
+                      height: card.lottieStyle?.height ?? 250,
+                    }}
+                    autoPlay
+                    loop
+                  />
+                )}
                 <View style={styles.cardHeader}>
                   <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
                     {card.title}
                   </Text>
-                  <View style={[styles.iconContainer, { backgroundColor: theme.backgroundSecondary }]}>
-                    <Ionicons name={card.icon} size={22} color={card.accent} />
-                  </View>
+                  {!card.lottie && (
+                    <View style={[styles.iconContainer, { backgroundColor: theme.backgroundSecondary }]}>
+                      <Ionicons name={card.icon} size={22} color={card.accent} />
+                    </View>
+                  )}
                 </View>
                 <View style={styles.cardFooter}>
                   <Ionicons name="arrow-forward" size={20} color={theme.textTertiary} />
@@ -158,6 +221,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </Animated.View>
           ))}
+
         </View>
 
         {/* Featured Section */}
