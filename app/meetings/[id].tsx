@@ -1,25 +1,20 @@
 /**
- * Meeting Details Screen
- * 
- * Read-only view of a single meeting.
+ * Meeting Details Screen - With ScreenHeader
  */
 
 import Avatar from '@/components/ui/Avatar';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
-import IconButton from '@/components/ui/IconButton';
-import { spacing } from '@/constants/tokens';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GET_MEETING_DETAILS } from '@/graphql/queries';
 import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Platform,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -47,7 +42,7 @@ interface MeetingDetail {
 export default function MeetingDetailsScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { theme } = useTheme();
+    const { theme, colorScheme } = useTheme();
     const [loading, setLoading] = useState(true);
     const [meeting, setMeeting] = useState<MeetingDetail | null>(null);
 
@@ -68,9 +63,9 @@ export default function MeetingDetailsScreen() {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'scheduled': return theme.primary;
-            case 'completed': return '#4CAF50';
-            case 'cancelled': return '#F44336';
+            case 'scheduled': return theme.accent;
+            case 'completed': return theme.accent;
+            case 'cancelled': return theme.error;
             default: return theme.textSecondary;
         }
     };
@@ -78,7 +73,7 @@ export default function MeetingDetailsScreen() {
     if (loading) {
         return (
             <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
-                <ActivityIndicator size="large" color={theme.primary} />
+                <ActivityIndicator size="large" color={theme.textPrimary} />
             </View>
         );
     }
@@ -87,7 +82,6 @@ export default function MeetingDetailsScreen() {
         return (
             <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
                 <Text style={{ color: theme.textSecondary }}>Meeting not found.</Text>
-                <IconButton icon="arrow-back" onPress={() => router.back()} />
             </View>
         );
     }
@@ -95,51 +89,29 @@ export default function MeetingDetailsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
-            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
+            <StatusBar
+                barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+                backgroundColor={theme.headerBackground}
+            />
 
-            {/* Header */}
-            <View style={styles.headerContainer}>
-                <LinearGradient
-                    colors={['#FF416C', '#FF4B2B']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.headerBackground}
-                />
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.topBar}>
-                        <IconButton
-                            icon="arrow-back"
-                            onPress={() => router.back()}
-                            variant="ghost"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-                            color="#fff"
-                        />
-                        <Text style={styles.headerTitle}>Meeting Details</Text>
-                        <IconButton
-                            icon="create-outline"
-                            onPress={() => router.push(`/meetings/edit?id=${id}`)}
-                            variant="ghost"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-                            color="#fff"
-                        />
-                    </View>
-                </SafeAreaView>
-            </View>
+            <ScreenHeader
+                title="Meeting Details"
+                onBack={() => router.back()}
+                onAction={() => router.push(`/meetings/edit?id=${id}`)}
+                actionIcon="create-outline"
+            />
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
                 <Card style={styles.metaCard} elevated>
                     <View style={styles.row}>
-                        <View style={styles.statusBadge}>
-                            <Badge
-                                label={meeting.meeting_type}
-                                variant="default"
-                                style={{ backgroundColor: theme.backgroundSecondary }}
-                            />
-                        </View>
+                        <Badge
+                            label={meeting.meeting_type}
+                            variant="default"
+                            style={{ backgroundColor: theme.backgroundSecondary }}
+                        />
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <View style={[styles.dot, { backgroundColor: getStatusColor(meeting.status) }]} />
-                            <Text style={{ fontSize: 12, color: getStatusColor(meeting.status), fontWeight: '600', textTransform: 'capitalize' }}>
+                            <Text style={{ fontSize: typography.fontSize.xs, color: getStatusColor(meeting.status), fontWeight: typography.fontWeight.semibold, textTransform: 'capitalize' }}>
                                 {meeting.status}
                             </Text>
                         </View>
@@ -181,7 +153,6 @@ export default function MeetingDetailsScreen() {
                     </View>
                 )}
 
-                {/* Related Contact */}
                 {meeting.contact && (
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>PARTICIPANTS</Text>
@@ -207,7 +178,6 @@ export default function MeetingDetailsScreen() {
                         </Card>
                     </View>
                 )}
-
             </ScrollView>
         </View>
     );
@@ -216,55 +186,21 @@ export default function MeetingDetailsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerContainer: {
-        width: '100%',
-        paddingBottom: spacing.lg,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        overflow: 'hidden',
-        backgroundColor: '#FF4B2B',
-        shadowColor: '#FF4B2B',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-        elevation: 5,
-        zIndex: 10,
-    },
-    headerBackground: { ...StyleSheet.absoluteFillObject },
-    safeArea: {
-        paddingTop: Platform.OS === 'android' ? 40 : 0,
-        paddingHorizontal: spacing.md,
-    },
-    topBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.xs,
-        marginTop: spacing.sm,
-        height: 48
-    },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-
     content: { padding: spacing.md, paddingBottom: 100 },
-
-    metaCard: { borderRadius: 20, padding: spacing.lg, marginBottom: spacing.lg },
+    metaCard: { borderRadius: borderRadius.xl, padding: spacing.lg, marginBottom: spacing.lg },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-    statusBadge: {},
     dot: { width: 8, height: 8, borderRadius: 4 },
-    title: { fontSize: 24, fontWeight: 'bold', lineHeight: 32, marginBottom: spacing.lg },
-
+    title: { fontSize: typography.fontSize['2xl'], fontWeight: typography.fontWeight.bold, lineHeight: typography.fontSize['2xl'] * 1.3, marginBottom: spacing.lg },
     infoGrid: { gap: spacing.md },
     infoItem: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
-    infoLabel: { fontSize: 12, fontWeight: '600', marginBottom: 2 },
-    infoValue: { fontSize: 16, fontWeight: '500' },
-
+    infoLabel: { fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.semibold, marginBottom: 2 },
+    infoValue: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.medium },
     section: { marginBottom: spacing.lg },
-    sectionTitle: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1, marginBottom: spacing.sm, marginLeft: 4 },
-    contentCard: { padding: spacing.md, borderRadius: 16 },
-    description: { fontSize: 16, lineHeight: 24 },
-
-    contactCard: { padding: spacing.md, borderRadius: 16 },
+    sectionTitle: { fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.bold, letterSpacing: 1, marginBottom: spacing.sm, marginLeft: 4 },
+    contentCard: { padding: spacing.md, borderRadius: borderRadius.lg },
+    description: { fontSize: typography.fontSize.base, lineHeight: typography.fontSize.base * 1.5 },
+    contactCard: { padding: spacing.md, borderRadius: borderRadius.lg },
     contactRow: { flexDirection: 'row', alignItems: 'center' },
-    contactName: { fontSize: 16, fontWeight: 'bold' },
-    contactSub: { fontSize: 14, marginTop: 2 },
+    contactName: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.bold },
+    contactSub: { fontSize: typography.fontSize.sm, marginTop: 2 },
 });

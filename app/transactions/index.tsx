@@ -1,32 +1,31 @@
 /**
- * Transactions Dashboard
+ * Transactions Dashboard - Uber Style
  * 
- * Displays all transactions with new design system.
+ * Clean transaction list with amount displays
  */
 
 import Avatar from '@/components/ui/Avatar';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
 import IconButton from '@/components/ui/IconButton';
-import { spacing } from '@/constants/tokens';
+import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GET_ALL_TRANSACTIONS } from '@/graphql/queries';
 import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Platform,
     RefreshControl,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     View
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Transaction {
     id: string;
@@ -43,7 +42,8 @@ interface Transaction {
 
 export default function TransactionsScreen() {
     const router = useRouter();
-    const { theme } = useTheme();
+    const { theme, colorScheme } = useTheme();
+    const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -67,9 +67,9 @@ export default function TransactionsScreen() {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'paid': return '#4CAF50';
-            case 'pending': return '#FF9800';
-            case 'failed': return '#F44336';
+            case 'paid': return theme.accent;
+            case 'pending': return theme.warning;
+            case 'failed': return theme.error;
             default: return theme.textSecondary;
         }
     };
@@ -81,94 +81,103 @@ export default function TransactionsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
-            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
+            <StatusBar
+                barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+                backgroundColor={theme.headerBackground}
+            />
 
             {/* Header */}
-            <View style={styles.headerContainer}>
-                <LinearGradient
-                    colors={['#FF416C', '#FF4B2B']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.headerBackground}
-                />
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.topBar}>
-                        <IconButton
-                            icon="arrow-back"
-                            onPress={() => router.back()}
-                            variant="ghost"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-                            color="#fff"
-                        />
-                        <Text style={styles.headerTitle}>Transactions</Text>
-                        <View style={{ width: 40 }} />
-                    </View>
-                </SafeAreaView>
+            <View style={[styles.header, { paddingTop: insets.top + spacing.sm, backgroundColor: theme.headerBackground }]}>
+                <View style={styles.headerTop}>
+                    <IconButton
+                        icon="arrow-back"
+                        onPress={() => router.back()}
+                        variant="ghost"
+                        style={{ backgroundColor: theme.backgroundSecondary }}
+                        color={theme.textPrimary}
+                    />
+                    <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Transactions</Text>
+                    <View style={{ width: 40 }} />
+                </View>
             </View>
 
             {/* List */}
             {loading ? (
                 <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color={theme.primary} />
+                    <ActivityIndicator size="large" color={theme.textPrimary} />
                 </View>
             ) : (
                 <ScrollView
-                    contentContainerStyle={styles.listContent}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchTransactions(true)} tintColor={theme.primary} />}
+                    contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={() => fetchTransactions(true)}
+                            tintColor={theme.textPrimary}
+                        />
+                    }
                     showsVerticalScrollIndicator={false}
                 >
                     {transactions.length === 0 ? (
                         <View style={styles.emptyState}>
-                            <Ionicons name="card-outline" size={64} color={theme.border} />
-                            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No transactions found</Text>
+                            <View style={[styles.emptyIcon, { backgroundColor: theme.backgroundSecondary }]}>
+                                <Ionicons name="card-outline" size={48} color={theme.textTertiary} />
+                            </View>
+                            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No transactions</Text>
+                            <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+                                Your transactions will appear here
+                            </Text>
                         </View>
                     ) : (
-                        transactions.map(transaction => (
-                            <Card
+                        transactions.map((transaction, index) => (
+                            <Animated.View
                                 key={transaction.id}
-                                style={styles.card}
-                                // @ts-ignore
-                                onPress={() => router.push(`/transactions/${transaction.id}`)}
-                                elevated
+                                entering={FadeInDown.delay(index * 30).springify()}
                             >
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.categoryContainer}>
-                                        <View style={[styles.categoryIcon, { backgroundColor: theme.primary + '20' }]}>
-                                            <Ionicons name="pricetag-outline" size={14} color={theme.primary} />
+                                <Card
+                                    style={styles.card}
+                                    onPress={() => router.push(`/transactions/${transaction.id}`)}
+                                    elevated
+                                >
+                                    <View style={styles.cardHeader}>
+                                        <View style={styles.categoryContainer}>
+                                            <View style={[styles.categoryIcon, { backgroundColor: theme.backgroundSecondary }]}>
+                                                <Ionicons name="pricetag-outline" size={14} color={theme.textSecondary} />
+                                            </View>
+                                            <Text style={[styles.categoryText, { color: theme.textSecondary }]}>
+                                                {transaction.category}
+                                            </Text>
                                         </View>
-                                        <Text style={[styles.categoryText, { color: theme.textSecondary }]}>
-                                            {transaction.category}
+                                        <Text style={[styles.dateText, { color: theme.textTertiary }]}>
+                                            {new Date(transaction.transaction_date).toLocaleDateString()}
                                         </Text>
                                     </View>
-                                    <Text style={[styles.dateText, { color: theme.textTertiary }]}>
-                                        {new Date(transaction.transaction_date).toLocaleDateString()}
-                                    </Text>
-                                </View>
 
-                                <View style={styles.amountRow}>
-                                    <Text style={[styles.amount, { color: theme.textPrimary }]}>
-                                        {formatCurrency(transaction.amount, transaction.currency)}
-                                    </Text>
-                                    <Badge
-                                        label={transaction.status}
-                                        variant="default"
-                                        style={{ backgroundColor: getStatusColor(transaction.status) + '20' }}
-                                        textStyle={{ color: getStatusColor(transaction.status) }}
-                                    />
-                                </View>
-
-                                <View style={styles.divider} />
-
-                                <View style={styles.cardFooter}>
-                                    <View style={styles.contactInfo}>
-                                        <Avatar name={transaction.contact?.name || '?'} size="sm" />
-                                        <Text style={[styles.contactName, { color: theme.textSecondary }]}>
-                                            {transaction.contact?.name || 'Unknown'}
+                                    <View style={styles.amountRow}>
+                                        <Text style={[styles.amount, { color: theme.textPrimary }]}>
+                                            {formatCurrency(transaction.amount, transaction.currency)}
                                         </Text>
+                                        <Badge
+                                            label={transaction.status}
+                                            variant="default"
+                                            style={{ backgroundColor: getStatusColor(transaction.status) + '20' }}
+                                            textStyle={{ color: getStatusColor(transaction.status) }}
+                                        />
                                     </View>
-                                    <Ionicons name="chevron-forward" size={16} color={theme.textTertiary} />
-                                </View>
-                            </Card>
+
+                                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+                                    <View style={styles.cardFooter}>
+                                        <View style={styles.contactInfo}>
+                                            <Avatar name={transaction.contact?.name || '?'} size="sm" />
+                                            <Text style={[styles.contactName, { color: theme.textSecondary }]}>
+                                                {transaction.contact?.name || 'Unknown'}
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={16} color={theme.textTertiary} />
+                                    </View>
+                                </Card>
+                            </Animated.View>
                         ))
                     )}
                 </ScrollView>
@@ -180,47 +189,48 @@ export default function TransactionsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerContainer: {
-        width: '100%',
+    header: {
+        paddingHorizontal: spacing.lg,
         paddingBottom: spacing.lg,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        overflow: 'hidden',
-        backgroundColor: '#FF4B2B',
-        shadowColor: '#FF4B2B',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-        elevation: 5,
-        zIndex: 10,
     },
-    headerBackground: { ...StyleSheet.absoluteFillObject },
-    safeArea: {
-        paddingTop: Platform.OS === 'android' ? 40 : 0,
-        paddingHorizontal: spacing.md,
-    },
-    topBar: {
+    headerTop: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: spacing.xs,
-        marginTop: spacing.sm,
-        height: 48
     },
-    headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
-    listContent: { padding: spacing.md, paddingBottom: 100 },
-    emptyState: { alignItems: 'center', marginTop: 60 },
-    emptyText: { marginTop: spacing.md, fontSize: 16 },
-    card: { marginBottom: spacing.md, borderRadius: 16, padding: spacing.md },
+    headerTitle: {
+        fontSize: typography.fontSize['2xl'],
+        fontWeight: typography.fontWeight.bold,
+        letterSpacing: typography.letterSpacing.tight,
+    },
+    listContent: { padding: spacing.md },
+    emptyState: { alignItems: 'center', marginTop: 80 },
+    emptyIcon: {
+        width: 96,
+        height: 96,
+        borderRadius: borderRadius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.lg,
+    },
+    emptyTitle: {
+        fontSize: typography.fontSize.xl,
+        fontWeight: typography.fontWeight.semibold,
+        marginBottom: spacing.xs,
+    },
+    emptySubtitle: {
+        fontSize: typography.fontSize.base,
+    },
+    card: { marginBottom: spacing.sm, borderRadius: borderRadius.xl, padding: spacing.md },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md, alignItems: 'center' },
     categoryContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    categoryIcon: { padding: 4, borderRadius: 6 },
-    categoryText: { fontSize: 13, fontWeight: '500' },
-    dateText: { fontSize: 12 },
+    categoryIcon: { padding: 4, borderRadius: borderRadius.sm },
+    categoryText: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.medium },
+    dateText: { fontSize: typography.fontSize.xs },
     amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-    amount: { fontSize: 24, fontWeight: 'bold' },
-    divider: { height: 1, backgroundColor: '#eee', marginBottom: spacing.sm },
+    amount: { fontSize: typography.fontSize['2xl'], fontWeight: typography.fontWeight.bold },
+    divider: { height: 1, marginBottom: spacing.sm },
     cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    contactInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    contactName: { fontSize: 14, fontWeight: '500' },
+    contactInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    contactName: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.medium },
 });

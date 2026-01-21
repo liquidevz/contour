@@ -11,16 +11,15 @@
  * - Shows main app when authenticated
  */
 
-import { useEffect, useState } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
-import SplashScreen from '@/components/SplashScreen';
 
 /**
  * Navigation guard component
@@ -31,7 +30,6 @@ function RootLayoutNav() {
   const { theme, colorScheme } = useTheme();
   const segments = useSegments();
   const router = useRouter();
-  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     if (loading) return;
@@ -46,11 +44,6 @@ function RootLayoutNav() {
       router.replace('/(tabs)');
     }
   }, [user, loading, segments]);
-
-  // Show custom splash screen
-  if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
-  }
 
   // Show loading spinner while checking auth
   if (loading) {

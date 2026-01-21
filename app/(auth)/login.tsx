@@ -1,41 +1,38 @@
 /**
- * Login Screen
+ * Login Screen - Uber Style
  * 
- * Modern email/password login with:
- * - Themed UI with gradient background
- * - New Input and Button components
- * - Animated logo/header
- * - Form validation
+ * Clean, minimal auth screen with black/white aesthetic
  */
 
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import { borderRadius, spacing, typography } from '@/constants/tokens';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
+    Alert,
     KeyboardAvoidingView,
     Platform,
-    Alert,
     ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
-    withSpring,
     withDelay,
+    withSpring
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import { spacing, typography } from '@/constants/tokens';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
     const { signIn } = useAuth();
     const { theme, colorScheme } = useTheme();
+    const insets = useSafeAreaInsets();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -97,98 +94,92 @@ export default function LoginScreen() {
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.background }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <LinearGradient
-                colors={
-                    colorScheme === 'dark'
-                        ? ['#0a0a0a', '#1a1a1a']
-                        : ['#ffffff', '#f8f9fa']
-                }
-                style={styles.gradient}
+            <ScrollView
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    {
+                        paddingTop: insets.top + 60,
+                        paddingBottom: insets.bottom + 40,
+                    }
+                ]}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
             >
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                >
-                    {/* Animated Logo/Header */}
-                    <Animated.View style={[styles.header, logoAnimatedStyle]}>
-                        <LinearGradient
-                            colors={theme.gradientPrimary as unknown as string[]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.logoContainer}
-                        >
-                            <Ionicons name="people" size={48} color={theme.textInverse} />
-                        </LinearGradient>
-                        <Text style={[styles.title, { color: theme.textPrimary }]}>
-                            Welcome Back
+                {/* Logo/Header */}
+                <Animated.View style={[styles.header, logoAnimatedStyle]}>
+                    <View style={[styles.logoContainer, { backgroundColor: theme.textPrimary }]}>
+                        <Ionicons name="people" size={40} color={theme.textInverse} />
+                    </View>
+                    <Text style={[styles.title, { color: theme.textPrimary }]}>
+                        Welcome back
+                    </Text>
+                    <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+                        Sign in to continue to Contour
+                    </Text>
+                </Animated.View>
+
+                {/* Form */}
+                <Animated.View style={[styles.form, formAnimatedStyle]}>
+                    <Input
+                        label="Email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChangeText={(text) => {
+                            setEmail(text);
+                            setEmailError('');
+                        }}
+                        leftIcon="mail-outline"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        error={emailError}
+                        size="lg"
+                    />
+
+                    <Input
+                        label="Password"
+                        placeholder="Enter your password"
+                        value={password}
+                        onChangeText={(text) => {
+                            setPassword(text);
+                            setPasswordError('');
+                        }}
+                        leftIcon="lock-closed-outline"
+                        secureTextEntry
+                        autoComplete="password"
+                        error={passwordError}
+                        size="lg"
+                    />
+
+                    <Button
+                        title="Sign In"
+                        onPress={handleLogin}
+                        loading={loading}
+                        disabled={loading}
+                        icon="arrow-forward"
+                        iconPosition="right"
+                        fullWidth
+                        size="xl"
+                        style={{ marginTop: spacing.md }}
+                    />
+
+                    {/* Footer */}
+                    <View style={styles.footer}>
+                        <Text style={[styles.footerText, { color: theme.textSecondary }]}>
+                            Don't have an account?{' '}
                         </Text>
-                        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-                            Sign in to continue to ContourZ
-                        </Text>
-                    </Animated.View>
-
-                    {/* Animated Form */}
-                    <Animated.View style={[styles.form, formAnimatedStyle]}>
-                        <Input
-                            label="Email"
-                            placeholder="Enter your email"
-                            value={email}
-                            onChangeText={(text) => {
-                                setEmail(text);
-                                setEmailError('');
-                            }}
-                            leftIcon="mail-outline"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            autoComplete="email"
-                            error={emailError}
-                        />
-
-                        <Input
-                            label="Password"
-                            placeholder="Enter your password"
-                            value={password}
-                            onChangeText={(text) => {
-                                setPassword(text);
-                                setPasswordError('');
-                            }}
-                            leftIcon="lock-closed-outline"
-                            secureTextEntry
-                            autoComplete="password"
-                            error={passwordError}
-                        />
-
                         <Button
-                            title="Sign In"
-                            onPress={handleLogin}
-                            loading={loading}
-                            disabled={loading}
-                            icon="log-in-outline"
-                            iconPosition="right"
-                            fullWidth
-                            style={{ marginTop: spacing.md }}
+                            title="Sign Up"
+                            onPress={() => router.push('/signup' as any)}
+                            variant="ghost"
+                            size="sm"
                         />
-
-                        {/* Footer */}
-                        <View style={styles.footer}>
-                            <Text style={[styles.footerText, { color: theme.textSecondary }]}>
-                                Don't have an account?{' '}
-                            </Text>
-                            <Button
-                                title="Sign Up"
-                                onPress={() => router.push('/signup' as any)}
-                                variant="ghost"
-                                size="sm"
-                                style={{ marginLeft: -spacing.sm }}
-                            />
-                        </View>
-                    </Animated.View>
-                </ScrollView>
-            </LinearGradient>
+                    </View>
+                </Animated.View>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }
@@ -197,23 +188,18 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    gradient: {
-        flex: 1,
-    },
     scrollContent: {
         flexGrow: 1,
-        justifyContent: 'center',
         paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.xl,
     },
     header: {
         alignItems: 'center',
-        marginBottom: spacing.xl,
+        marginBottom: spacing.xxl,
     },
     logoContainer: {
-        width: 96,
-        height: 96,
-        borderRadius: 24,
+        width: 80,
+        height: 80,
+        borderRadius: borderRadius.xl,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: spacing.lg,
@@ -222,6 +208,7 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize['3xl'],
         fontWeight: typography.fontWeight.bold,
         marginBottom: spacing.xs,
+        letterSpacing: typography.letterSpacing.tight,
     },
     subtitle: {
         fontSize: typography.fontSize.base,
@@ -234,9 +221,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: spacing.lg,
+        marginTop: spacing.xl,
     },
     footerText: {
-        fontSize: typography.fontSize.sm,
+        fontSize: typography.fontSize.base,
     },
 });

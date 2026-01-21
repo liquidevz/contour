@@ -1,37 +1,38 @@
 /**
- * Home Screen (New Dashboard)
+ * Home Screen - Uber Style Dashboard
  * 
- * Featured Layout:
- * - Red Gradient Header
- * - Search Bar
- * - Bento Grid for Contacts, Tasks, Meetings, Transactions
+ * Clean black/white bento grid with modern typography
+ * No gradients - pure minimal aesthetic
  */
 
-import Avatar from '@/components/ui/Avatar';
-import { spacing } from '@/constants/tokens';
+import { borderRadius, elevation, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Dimensions,
-  Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import Avatar from '@/components/ui/Avatar';
+import SearchBar from '@/components/ui/SearchBar';
 
 const { width } = Dimensions.get('window');
+const CARD_GAP = spacing.md;
+const CARD_WIDTH = (width - spacing.lg * 2 - CARD_GAP) / 2;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { theme } = useTheme();
+  const { theme, colorScheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
 
   const navigateTo = (route: string) => {
@@ -40,154 +41,169 @@ export default function HomeScreen() {
   };
 
   const navigateToContacts = () => {
-    // Navigate to the contacts tab
     router.push('/(tabs)/contacts');
   };
 
+  // Bento card configurations
+  const bentoCards = [
+    {
+      id: 'contacts',
+      title: 'Contacts',
+      icon: 'people' as const,
+      onPress: navigateToContacts,
+      accent: theme.textPrimary,
+    },
+    {
+      id: 'tasks',
+      title: 'Tasks',
+      icon: 'checkbox' as const,
+      onPress: () => router.push('/tasks'),
+      accent: theme.accent,
+    },
+    {
+      id: 'meetings',
+      title: 'Meetings',
+      icon: 'calendar' as const,
+      onPress: () => router.push('/meetings'),
+      accent: theme.textPrimary,
+    },
+    {
+      id: 'transactions',
+      title: 'Transactions',
+      icon: 'card' as const,
+      onPress: () => router.push('/transactions'),
+      accent: theme.textSecondary,
+    },
+  ];
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.headerBackground}
+      />
 
-      {/* Header Section */}
-      <View style={styles.headerContainer}>
-        <LinearGradient
-          colors={['#FF416C', '#FF4B2B']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerBackground}
-        />
-
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.topBar}>
-            <Text style={styles.headerTitle}>Home</Text>
-            <View style={styles.headerRight}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>PRO</Text>
-              </View>
-              <Avatar name="User" size="md" />
-            </View>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm, backgroundColor: theme.headerBackground }]}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back</Text>
+            <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Dashboard</Text>
           </View>
-
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search for 'Clients'..."
-              placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            <View style={styles.micIconContainer}>
-              <Ionicons name="mic" size={20} color="#FF4B2B" />
-            </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={[styles.notificationBtn, { backgroundColor: theme.backgroundSecondary }]}>
+              <Ionicons name="notifications-outline" size={22} color={theme.textPrimary} />
+            </TouchableOpacity>
+            <Avatar name="User" size="md" />
           </View>
-        </SafeAreaView>
+        </View>
+
+        {/* Search */}
+        <View style={styles.searchWrapper}>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search contacts, tasks..."
+            showMicIcon
+          />
+        </View>
       </View>
 
       {/* Main Content */}
       <ScrollView
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Quick Stats */}
+        <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.statsRow}>
+          <View style={[styles.statCard, { backgroundColor: theme.textPrimary }]}>
+            <Text style={[styles.statNumber, { color: theme.textInverse }]}>24</Text>
+            <Text style={[styles.statLabel, { color: theme.textInverse, opacity: 0.8 }]}>Active Contacts</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: theme.backgroundSecondary }]}>
+            <Text style={[styles.statNumber, { color: theme.textPrimary }]}>8</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Pending Tasks</Text>
+          </View>
+        </Animated.View>
+
+        {/* Bento Grid */}
         <View style={styles.gridContainer}>
-          {/* Bento Grid */}
-
-          {/* Contacts Card */}
-          <TouchableOpacity
-            style={[styles.card, styles.cardLarge]}
-            onPress={navigateToContacts}
-            activeOpacity={0.9}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Contacts</Text>
-              <Ionicons name="people" size={24} color="#333" />
-            </View>
-            <View style={styles.cardContent}>
-              <View style={styles.illustrationPlaceholer}>
-                <Ionicons name="person-add-outline" size={48} color="#FF4B2B" style={{ opacity: 0.2 }} />
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Tasks Card */}
-          <TouchableOpacity
-            style={[styles.card, styles.cardLarge]}
-            onPress={() => router.push('/tasks')}
-            activeOpacity={0.9}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Tasks</Text>
-              <Ionicons name="checkbox-outline" size={24} color="#333" />
-            </View>
-            <View style={styles.cardContent}>
-              <View style={[styles.illustrationPlaceholer, { alignSelf: 'flex-end' }]}>
-                <Ionicons name="checkmark-circle-outline" size={48} color="#4CAF50" style={{ opacity: 0.2 }} />
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Meetings Card */}
-          <TouchableOpacity
-            style={[styles.card, styles.cardLarge]}
-            onPress={() => router.push('/meetings')}
-            activeOpacity={0.9}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Meetings</Text>
-              <Ionicons name="calendar-outline" size={24} color="#333" />
-            </View>
-            <View style={styles.cardContent}>
-              <View style={styles.illustrationPlaceholer}>
-                <Ionicons name="time-outline" size={48} color="#FF9800" style={{ opacity: 0.2 }} />
-              </View>
-            </View>
-          </TouchableOpacity>
-
-
-          {/* Transactions Card */}
-          <TouchableOpacity
-            style={[styles.card, styles.cardLarge]}
-            onPress={() => router.push('/transactions')}
-            activeOpacity={0.9}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Transact</Text>
-              <Ionicons name="card-outline" size={24} color="#333" />
-            </View>
-            <View style={styles.cardContent}>
-              <View style={[styles.illustrationPlaceholer, { alignSelf: 'flex-end' }]}>
-                <Ionicons name="wallet-outline" size={48} color="#9C27B0" style={{ opacity: 0.2 }} />
-              </View>
-            </View>
-          </TouchableOpacity>
-
+          {bentoCards.map((card, index) => (
+            <Animated.View
+              key={card.id}
+              entering={FadeInDown.delay(150 + index * 50).springify()}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.bentoCard,
+                  {
+                    backgroundColor: theme.cardBackground,
+                    ...elevation.md,
+                  },
+                ]}
+                onPress={card.onPress}
+                activeOpacity={0.8}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>
+                    {card.title}
+                  </Text>
+                  <View style={[styles.iconContainer, { backgroundColor: theme.backgroundSecondary }]}>
+                    <Ionicons name={card.icon} size={22} color={card.accent} />
+                  </View>
+                </View>
+                <View style={styles.cardFooter}>
+                  <Ionicons name="arrow-forward" size={20} color={theme.textTertiary} />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
         </View>
-
 
         {/* Featured Section */}
-        <View style={styles.featuredSection}>
-          <View style={styles.divider}>
-            <View style={styles.line} />
-            <Text style={styles.dividerText}>FEATURED FOR YOU</Text>
-            <View style={styles.line} />
-          </View>
+        <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.featuredSection}>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>QUICK ACTIONS</Text>
 
-          <TouchableOpacity style={styles.featuredCard}>
-            <LinearGradient
-              colors={['#11998e', '#38ef7d']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.featuredGradient}
-            >
-              <View>
-                <Text style={styles.featuredTitle}>Import Contacts</Text>
-                <Text style={styles.featuredSubtitle}>Sync from your device instantly</Text>
+          <TouchableOpacity
+            style={[styles.featuredCard, { backgroundColor: theme.textPrimary }]}
+            activeOpacity={0.9}
+          >
+            <View style={styles.featuredContent}>
+              <View style={[styles.featuredIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                <Ionicons name="cloud-upload-outline" size={24} color={theme.textInverse} />
               </View>
-              <Ionicons name="cloud-upload-outline" size={32} color="#fff" />
-            </LinearGradient>
+              <View style={styles.featuredText}>
+                <Text style={[styles.featuredTitle, { color: theme.textInverse }]}>
+                  Import Contacts
+                </Text>
+                <Text style={[styles.featuredSubtitle, { color: theme.textInverse, opacity: 0.7 }]}>
+                  Sync from your device
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={theme.textInverse} />
           </TouchableOpacity>
-        </View>
 
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: theme.backgroundSecondary }]}
+            activeOpacity={0.8}
+          >
+            <View style={styles.featuredContent}>
+              <View style={[styles.featuredIcon, { backgroundColor: theme.surface }]}>
+                <Ionicons name="add" size={24} color={theme.textPrimary} />
+              </View>
+              <View style={styles.featuredText}>
+                <Text style={[styles.actionTitle, { color: theme.textPrimary }]}>
+                  New Contact
+                </Text>
+                <Text style={[styles.actionSubtitle, { color: theme.textSecondary }]}>
+                  Add a new contact manually
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -196,113 +212,77 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
   },
-  headerContainer: {
-    height: 220, // Taller header to accommodate search bar
-    width: '100%',
-    position: 'relative',
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    overflow: 'hidden',
-    shadowColor: '#FF4B2B',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
-    zIndex: 10,
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
-  headerBackground: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: Platform.OS === 'android' ? 40 : 0,
-  },
-  topBar: {
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.md,
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
+  },
+  greeting: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    marginBottom: spacing.xxs,
   },
   headerTitle: {
-    fontSize: 42,
-    fontWeight: '900', // Extra bold
-    color: '#FFFFFF',
-    letterSpacing: -1,
+    fontSize: typography.fontSize['3xl'],
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: typography.letterSpacing.tight,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  badge: {
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  searchContainer: {
-    flexDirection: 'row',
+  notificationBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.full,
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingHorizontal: spacing.md,
-    height: 56,
-    marginTop: spacing.xl,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    justifyContent: 'center',
   },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-    height: '100%',
-  },
-  micIconContainer: {
-    borderLeftWidth: 1,
-    borderLeftColor: '#eee',
-    paddingLeft: spacing.md,
+  searchWrapper: {
+    marginTop: spacing.xs,
   },
   contentContainer: {
-    paddingTop: spacing.xl,
-    paddingHorizontal: spacing.md,
-    paddingBottom: 100,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: CARD_GAP,
+    marginBottom: spacing.lg,
+  },
+  statCard: {
+    flex: 1,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+  },
+  statNumber: {
+    fontSize: typography.fontSize['4xl'],
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing.xxs,
+  },
+  statLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
   },
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: CARD_GAP,
+    marginBottom: spacing.xl,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
+  bentoCard: {
+    width: CARD_WIDTH,
+    height: 140,
+    borderRadius: borderRadius.xl,
     padding: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: spacing.md,
-  },
-  cardLarge: {
-    width: (width - (spacing.md * 3)) / 2, // 2 column grid
-    height: 160,
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -310,61 +290,71 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   cardTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1A1A1A',
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
   },
-  cardContent: {
-    flex: 1,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  illustrationPlaceholer: {
-    marginTop: spacing.md,
+  cardFooter: {
+    alignItems: 'flex-end',
   },
   featuredSection: {
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E0E0E0',
-  },
-  dividerText: {
-    marginHorizontal: spacing.md,
-    color: '#999',
-    fontSize: 12,
-    letterSpacing: 1.5,
-    fontWeight: '600',
+  sectionTitle: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+    letterSpacing: typography.letterSpacing.wider,
+    marginBottom: spacing.md,
   },
   featuredCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  featuredGradient: {
-    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 100,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.md,
+  },
+  featuredContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  featuredIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featuredText: {
+    gap: spacing.xxs,
   },
   featuredTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
   },
   featuredSubtitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 14,
-  }
+    fontSize: typography.fontSize.sm,
+  },
+  actionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.sm,
+  },
+  actionTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  actionSubtitle: {
+    fontSize: typography.fontSize.sm,
+  },
 });

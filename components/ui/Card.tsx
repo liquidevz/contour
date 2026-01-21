@@ -1,14 +1,16 @@
 /**
- * Card Component
+ * Card Component - Uber Style
  * 
- * Interactive card with animations and theme support
+ * Clean, minimal card with subtle shadows and smooth interactions
  */
 
+import { borderRadius, elevation, spacing } from '@/constants/tokens';
+import { useTheme } from '@/contexts/ThemeContext';
 import React from 'react';
 import {
+    StyleSheet,
     TouchableOpacity,
     View,
-    StyleSheet,
     ViewStyle,
 } from 'react-native';
 import Animated, {
@@ -16,8 +18,6 @@ import Animated, {
     useSharedValue,
     withSpring,
 } from 'react-native-reanimated';
-import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, borderRadius, elevation } from '@/constants/tokens';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -26,8 +26,9 @@ interface CardProps {
     onPress?: () => void;
     style?: ViewStyle;
     elevated?: boolean;
-    gradient?: boolean;
-    padding?: keyof typeof spacing;
+    variant?: 'default' | 'outlined' | 'ghost';
+    padding?: keyof typeof spacing | 'none';
+    borderRadiusSize?: keyof typeof borderRadius;
 }
 
 export default function Card({
@@ -35,8 +36,9 @@ export default function Card({
     onPress,
     style,
     elevated = true,
-    gradient = false,
+    variant = 'default',
     padding = 'md',
+    borderRadiusSize = 'xl',
 }: CardProps) {
     const { theme } = useTheme();
     const scale = useSharedValue(1);
@@ -47,27 +49,42 @@ export default function Card({
 
     const handlePressIn = () => {
         if (onPress) {
-            scale.value = withSpring(0.98, { damping: 10, stiffness: 400 });
+            scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
         }
     };
 
     const handlePressOut = () => {
         if (onPress) {
-            scale.value = withSpring(1, { damping: 10, stiffness: 400 });
+            scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+        }
+    };
+
+    // Variant styles
+    const getVariantStyles = (): ViewStyle => {
+        switch (variant) {
+            case 'outlined':
+                return {
+                    backgroundColor: 'transparent',
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                };
+            case 'ghost':
+                return {
+                    backgroundColor: 'transparent',
+                };
+            default:
+                return {
+                    backgroundColor: theme.cardBackground,
+                };
         }
     };
 
     const cardStyle: ViewStyle = {
-        backgroundColor: elevated ? theme.surfaceElevated : theme.surface,
-        padding: spacing[padding],
-        borderRadius: borderRadius.lg,
-        ...(elevated ? elevation.md : elevation.none),
+        ...getVariantStyles(),
+        padding: padding === 'none' ? 0 : spacing[padding],
+        borderRadius: borderRadius[borderRadiusSize],
+        ...(elevated && variant === 'default' ? elevation.md : elevation.none),
     };
-
-    if (gradient) {
-        cardStyle.borderWidth = 1;
-        cardStyle.borderColor = theme.primary + '30'; // 30 = opacity
-    }
 
     const CardWrapper = onPress ? AnimatedTouchable : View;
 
@@ -78,7 +95,7 @@ export default function Card({
             onPressOut={handlePressOut}
             disabled={!onPress}
             style={[cardStyle, onPress && animatedStyle, style]}
-            activeOpacity={onPress ? 0.9 : 1}
+            activeOpacity={onPress ? 0.95 : 1}
         >
             {children}
         </CardWrapper>

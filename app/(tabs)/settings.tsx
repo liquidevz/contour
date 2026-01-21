@@ -1,24 +1,19 @@
 /**
- * Settings Screen
+ * Settings Screen - Uber Style
  * 
- * Revamped to match the new design system:
- * - Red Gradient Header
- * - Consistent Card styling
+ * Clean grouped sections with modern toggles
  */
 
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
-import { borderRadius, spacing } from '@/constants/tokens';
+import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Alert,
-    Platform,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -26,10 +21,12 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
     const router = useRouter();
-    const { theme, themeMode, setThemeMode } = useTheme();
+    const { theme, colorScheme, themeMode, setThemeMode } = useTheme();
+    const insets = useSafeAreaInsets();
     const [signingOut, setSigningOut] = useState(false);
 
     const handleSignOut = async () => {
@@ -60,69 +57,67 @@ export default function SettingsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
-            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
+            <StatusBar
+                barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+                backgroundColor={theme.headerBackground}
+            />
 
             {/* Header */}
-            <View style={styles.headerContainer}>
-                <LinearGradient
-                    colors={['#FF416C', '#FF4B2B']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.headerBackground}
-                />
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.topBar}>
-                        <Text style={styles.headerTitle}>Settings</Text>
-                    </View>
-                </SafeAreaView>
+            <View style={[styles.header, { paddingTop: insets.top + spacing.sm, backgroundColor: theme.headerBackground }]}>
+                <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Settings</Text>
             </View>
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.contentContainer}
+                contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 40 }]}
             >
-                {/* Theme Section */}
+                {/* Appearance Section */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
-                        Appearance
+                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                        APPEARANCE
                     </Text>
-                    <Card elevated padding="md">
+                    <Card elevated padding="none">
                         <View style={styles.themeContainer}>
-                            {themeOptions.map((option) => (
+                            {themeOptions.map((option, index) => (
                                 <TouchableOpacity
                                     key={option.value}
                                     style={[
                                         styles.themeOption,
-                                        {
-                                            backgroundColor: themeMode === option.value ? theme.primary + '10' : 'transparent',
-                                            borderColor: themeMode === option.value ? theme.primary : theme.border,
-                                            borderWidth: 1,
+                                        index !== themeOptions.length - 1 && {
+                                            borderBottomWidth: 1,
+                                            borderBottomColor: theme.border
                                         },
                                     ]}
                                     onPress={() => setThemeMode(option.value)}
+                                    activeOpacity={0.7}
                                 >
-                                    <Ionicons
-                                        name={option.icon}
-                                        size={24}
-                                        color={themeMode === option.value ? theme.primary : theme.textSecondary}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.themeLabel,
-                                            {
-                                                color: themeMode === option.value ? theme.primary : theme.textSecondary,
-                                                fontWeight: themeMode === option.value ? '700' : '500'
-                                            },
-                                        ]}
-                                    >
-                                        {option.label}
-                                    </Text>
+                                    <View style={styles.themeOptionLeft}>
+                                        <View style={[styles.iconWrapper, { backgroundColor: theme.backgroundSecondary }]}>
+                                            <Ionicons
+                                                name={option.icon}
+                                                size={20}
+                                                color={themeMode === option.value ? theme.accent : theme.textSecondary}
+                                            />
+                                        </View>
+                                        <Text
+                                            style={[
+                                                styles.themeLabel,
+                                                {
+                                                    color: theme.textPrimary,
+                                                    fontWeight: themeMode === option.value
+                                                        ? typography.fontWeight.semibold
+                                                        : typography.fontWeight.normal,
+                                                },
+                                            ]}
+                                        >
+                                            {option.label}
+                                        </Text>
+                                    </View>
                                     {themeMode === option.value && (
                                         <Ionicons
-                                            name="checkmark-circle"
-                                            size={20}
-                                            color={theme.primary}
-                                            style={styles.checkmark}
+                                            name="checkmark"
+                                            size={22}
+                                            color={theme.accent}
                                         />
                                     )}
                                 </TouchableOpacity>
@@ -131,24 +126,29 @@ export default function SettingsScreen() {
                     </Card>
                 </View>
 
-                {/* App Info Section */}
+                {/* About Section */}
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
-                        About
+                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                        ABOUT
                     </Text>
-                    <Card elevated padding="md">
-                        <View style={styles.row}>
-                            <View style={styles.rowLeft}>
-                                <Ionicons name="information-circle-outline" size={24} color={theme.primary} />
-                                <Text style={[styles.label, { color: theme.textPrimary }]}>Version</Text>
+                    <Card elevated padding="none">
+                        <View style={styles.aboutRow}>
+                            <View style={styles.aboutLeft}>
+                                <View style={[styles.iconWrapper, { backgroundColor: theme.backgroundSecondary }]}>
+                                    <Ionicons name="information-circle-outline" size={20} color={theme.textSecondary} />
+                                </View>
+                                <Text style={[styles.aboutLabel, { color: theme.textPrimary }]}>Version</Text>
                             </View>
-                            <Text style={[styles.value, { color: theme.textSecondary }]}>1.0.0</Text>
+                            <Text style={[styles.aboutValue, { color: theme.textSecondary }]}>1.0.0</Text>
                         </View>
                     </Card>
                 </View>
 
-                {/* Sign Out Button */}
+                {/* Account Section */}
                 <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                        ACCOUNT
+                    </Text>
                     <Button
                         title="Sign Out"
                         onPress={handleSignOut}
@@ -157,13 +157,14 @@ export default function SettingsScreen() {
                         disabled={signingOut}
                         icon="log-out-outline"
                         fullWidth
+                        size="lg"
                     />
                 </View>
 
                 {/* Footer */}
                 <Text style={[styles.footer, { color: theme.textTertiary }]}>
-                    ContourZ Contact CRM {'\n'}
-                    Made with ❤️
+                    Contour CRM{'\n'}
+                    Made with care
                 </Text>
             </ScrollView>
         </View>
@@ -174,88 +175,71 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    headerContainer: {
-        width: '100%',
+    header: {
+        paddingHorizontal: spacing.lg,
         paddingBottom: spacing.lg,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        overflow: 'hidden',
-        backgroundColor: '#FF4B2B',
-        shadowColor: '#FF4B2B',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-        elevation: 5,
-        zIndex: 10,
-    },
-    headerBackground: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    safeArea: {
-        paddingTop: Platform.OS === 'android' ? 40 : 0,
-        paddingHorizontal: spacing.md,
-    },
-    topBar: {
-        marginBottom: spacing.sm,
-        marginTop: spacing.sm,
-        height: 48,
-        justifyContent: 'center'
     },
     headerTitle: {
-        fontSize: 34,
-        fontWeight: 'bold',
-        color: '#fff',
+        fontSize: typography.fontSize['3xl'],
+        fontWeight: typography.fontWeight.bold,
+        letterSpacing: typography.letterSpacing.tight,
     },
     contentContainer: {
         padding: spacing.lg,
-        paddingTop: spacing.lg + 20,
     },
     section: {
         marginBottom: spacing.xl,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: spacing.md,
+        fontSize: typography.fontSize.xs,
+        fontWeight: typography.fontWeight.semibold,
+        letterSpacing: typography.letterSpacing.wider,
+        marginBottom: spacing.sm,
+        marginLeft: spacing.xs,
     },
-    themeContainer: {
-        gap: spacing.sm,
-    },
+    themeContainer: {},
     themeOption: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         padding: spacing.md,
-        borderRadius: borderRadius.md,
+    },
+    themeOptionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: spacing.md,
     },
+    iconWrapper: {
+        width: 36,
+        height: 36,
+        borderRadius: borderRadius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     themeLabel: {
-        fontSize: 16,
-        flex: 1,
+        fontSize: typography.fontSize.base,
     },
-    checkmark: {
-        marginLeft: 'auto',
-    },
-    row: {
+    aboutRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        padding: spacing.md,
     },
-    rowLeft: {
+    aboutLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.md,
     },
-    label: {
-        fontSize: 16,
-        fontWeight: '500',
+    aboutLabel: {
+        fontSize: typography.fontSize.base,
     },
-    value: {
-        fontSize: 16,
+    aboutValue: {
+        fontSize: typography.fontSize.base,
     },
     footer: {
-        fontSize: 12,
+        fontSize: typography.fontSize.sm,
         textAlign: 'center',
-        marginBottom: spacing.xxl,
-        lineHeight: 18,
+        marginTop: spacing.xl,
+        lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
     },
 });

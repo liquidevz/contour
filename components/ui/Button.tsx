@@ -1,15 +1,18 @@
 /**
- * Button Component
+ * Button Component - Uber Style
  * 
- * Universal button with multiple variants, sizes, and animations
+ * Modern button with multiple variants, sizes, and micro-interactions
+ * Clean black/white aesthetic with subtle animations
  */
 
-import { borderRadius, spacing, typography } from '@/constants/tokens';
+import { elevation, layout, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import React from 'react';
 import {
     ActivityIndicator,
+    Platform,
     StyleSheet,
     Text,
     TextStyle,
@@ -20,13 +23,13 @@ import {
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
-    withSpring
+    withSpring,
 } from 'react-native-reanimated';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
-type ButtonSize = 'sm' | 'md' | 'lg';
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 interface ButtonProps {
     title: string;
@@ -40,8 +43,8 @@ interface ButtonProps {
     fullWidth?: boolean;
     style?: ViewStyle;
     textStyle?: TextStyle;
+    haptic?: boolean;
 }
-
 
 export default function Button({
     title,
@@ -55,6 +58,7 @@ export default function Button({
     fullWidth = false,
     style,
     textStyle: customTextStyle,
+    haptic = true,
 }: ButtonProps) {
     const { theme } = useTheme();
     const scale = useSharedValue(1);
@@ -64,62 +68,131 @@ export default function Button({
     }));
 
     const handlePressIn = () => {
-        scale.value = withSpring(0.95, { damping: 10, stiffness: 400 });
+        scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
     };
 
     const handlePressOut = () => {
-        scale.value = withSpring(1, { damping: 10, stiffness: 400 });
+        scale.value = withSpring(1, { damping: 15, stiffness: 400 });
     };
 
-    // Size styles
-    const sizeStyles: Record<ButtonSize, { padding: number; fontSize: number; iconSize: number }> = {
-        sm: { padding: spacing.sm, fontSize: typography.fontSize.sm, iconSize: 16 },
-        md: { padding: spacing.md, fontSize: typography.fontSize.base, iconSize: 20 },
-        lg: { padding: spacing.lg, fontSize: typography.fontSize.lg, iconSize: 24 },
+    const handlePress = () => {
+        if (haptic && Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        onPress();
+    };
+
+    // Size configurations
+    const sizeStyles: Record<ButtonSize, {
+        paddingVertical: number;
+        paddingHorizontal: number;
+        fontSize: number;
+        iconSize: number;
+        minHeight: number;
+    }> = {
+        xs: {
+            paddingVertical: spacing.xs,
+            paddingHorizontal: spacing.sm,
+            fontSize: typography.fontSize.xs,
+            iconSize: 14,
+            minHeight: 28,
+        },
+        sm: {
+            paddingVertical: spacing.xs + 2,
+            paddingHorizontal: spacing.md,
+            fontSize: typography.fontSize.sm,
+            iconSize: 16,
+            minHeight: 36,
+        },
+        md: {
+            paddingVertical: spacing.sm + 2,
+            paddingHorizontal: spacing.lg,
+            fontSize: typography.fontSize.base,
+            iconSize: 20,
+            minHeight: 48,
+        },
+        lg: {
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.xl,
+            fontSize: typography.fontSize.lg,
+            iconSize: 22,
+            minHeight: 56,
+        },
+        xl: {
+            paddingVertical: spacing.md + 4,
+            paddingHorizontal: spacing.xl,
+            fontSize: typography.fontSize.xl,
+            iconSize: 24,
+            minHeight: 64,
+        },
     };
 
     const currentSize = sizeStyles[size];
 
-    // Variant styles
+    // Variant styles - Uber aesthetic
     const getVariantStyles = (): { container: ViewStyle; text: TextStyle } => {
+        const baseStyles = {
+            container: {} as ViewStyle,
+            text: {} as TextStyle,
+        };
+
         switch (variant) {
             case 'primary':
                 return {
                     container: {
-                        backgroundColor: disabled ? theme.border : theme.primary,
+                        backgroundColor: disabled ? theme.border : theme.textPrimary,
+                        ...elevation.sm,
                     },
-                    text: { color: theme.textInverse },
+                    text: {
+                        color: theme.textInverse,
+                        fontWeight: typography.fontWeight.semibold,
+                    },
                 };
             case 'secondary':
                 return {
                     container: {
-                        backgroundColor: disabled ? theme.border : theme.secondary,
+                        backgroundColor: disabled ? theme.border : theme.backgroundSecondary,
                     },
-                    text: { color: theme.textInverse },
+                    text: {
+                        color: disabled ? theme.textTertiary : theme.textPrimary,
+                        fontWeight: typography.fontWeight.semibold,
+                    },
                 };
             case 'outline':
                 return {
                     container: {
                         backgroundColor: 'transparent',
-                        borderWidth: 1,
-                        borderColor: disabled ? theme.border : theme.primary,
+                        borderWidth: 1.5,
+                        borderColor: disabled ? theme.border : theme.textPrimary,
                     },
-                    text: { color: disabled ? theme.textTertiary : theme.primary },
+                    text: {
+                        color: disabled ? theme.textTertiary : theme.textPrimary,
+                        fontWeight: typography.fontWeight.semibold,
+                    },
                 };
             case 'ghost':
                 return {
                     container: {
                         backgroundColor: 'transparent',
                     },
-                    text: { color: disabled ? theme.textTertiary : theme.primary },
+                    text: {
+                        color: disabled ? theme.textTertiary : theme.textPrimary,
+                        fontWeight: typography.fontWeight.medium,
+                    },
                 };
             case 'destructive':
                 return {
                     container: {
                         backgroundColor: disabled ? theme.border : theme.error,
+                        ...elevation.sm,
                     },
-                    text: { color: theme.textInverse },
+                    text: {
+                        color: '#FFFFFF',
+                        fontWeight: typography.fontWeight.semibold,
+                    },
                 };
+            default:
+                return baseStyles;
         }
     };
 
@@ -127,7 +200,7 @@ export default function Button({
 
     return (
         <AnimatedTouchable
-            onPress={onPress}
+            onPress={handlePress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             disabled={disabled || loading}
@@ -135,19 +208,23 @@ export default function Button({
                 styles.button,
                 variantStyles.container,
                 {
-                    paddingVertical: currentSize.padding * 0.75,
-                    paddingHorizontal: currentSize.padding * 1.5,
+                    paddingVertical: currentSize.paddingVertical,
+                    paddingHorizontal: currentSize.paddingHorizontal,
+                    minHeight: currentSize.minHeight,
                     opacity: disabled ? 0.5 : 1,
-                    width: fullWidth ? '100%' : 'auto',
+                    width: fullWidth ? '100%' : undefined,
                 },
                 animatedStyle,
                 style,
             ]}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
         >
             <View style={styles.content}>
                 {loading ? (
-                    <ActivityIndicator color={variantStyles.text.color} size="small" />
+                    <ActivityIndicator
+                        color={variantStyles.text.color}
+                        size={currentSize.iconSize < 20 ? 'small' : 'small'}
+                    />
                 ) : (
                     <>
                         {icon && iconPosition === 'left' && (
@@ -165,6 +242,7 @@ export default function Button({
                                 { fontSize: currentSize.fontSize },
                                 customTextStyle,
                             ]}
+                            numberOfLines={1}
                         >
                             {title}
                         </Text>
@@ -185,9 +263,10 @@ export default function Button({
 
 const styles = StyleSheet.create({
     button: {
-        borderRadius: borderRadius.md,
+        borderRadius: layout.buttonBorderRadius,
         alignItems: 'center',
         justifyContent: 'center',
+        flexDirection: 'row',
     },
     content: {
         flexDirection: 'row',
@@ -195,7 +274,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     text: {
-        fontWeight: typography.fontWeight.semibold,
+        textAlign: 'center',
+        letterSpacing: typography.letterSpacing.wide,
     },
     iconLeft: {
         marginRight: spacing.sm,

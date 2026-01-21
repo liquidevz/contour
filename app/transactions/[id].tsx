@@ -1,25 +1,20 @@
 /**
- * Transaction Details Screen
- * 
- * Read-only view of a single transaction.
+ * Transactions Detail Screen - With ScreenHeader
  */
 
 import Avatar from '@/components/ui/Avatar';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
-import IconButton from '@/components/ui/IconButton';
-import { spacing } from '@/constants/tokens';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GET_TRANSACTION_DETAILS } from '@/graphql/queries';
 import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Platform,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -34,8 +29,8 @@ interface TransactionDetail {
     category: string;
     status: string;
     transaction_date: string;
+    payment_method: string;
     notes: string;
-    created_at: string;
     contact: {
         id: string;
         name: string;
@@ -47,7 +42,7 @@ interface TransactionDetail {
 export default function TransactionDetailsScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
-    const { theme } = useTheme();
+    const { theme, colorScheme } = useTheme();
     const [loading, setLoading] = useState(true);
     const [transaction, setTransaction] = useState<TransactionDetail | null>(null);
 
@@ -68,9 +63,9 @@ export default function TransactionDetailsScreen() {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'paid': return '#4CAF50';
-            case 'pending': return '#FF9800';
-            case 'failed': return '#F44336';
+            case 'paid': return theme.accent;
+            case 'pending': return theme.warning;
+            case 'failed': return theme.error;
             default: return theme.textSecondary;
         }
     };
@@ -79,11 +74,10 @@ export default function TransactionDetailsScreen() {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(amount);
     };
 
-
     if (loading) {
         return (
             <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
-                <ActivityIndicator size="large" color={theme.primary} />
+                <ActivityIndicator size="large" color={theme.textPrimary} />
             </View>
         );
     }
@@ -92,7 +86,6 @@ export default function TransactionDetailsScreen() {
         return (
             <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
                 <Text style={{ color: theme.textSecondary }}>Transaction not found.</Text>
-                <IconButton icon="arrow-back" onPress={() => router.back()} />
             </View>
         );
     }
@@ -100,90 +93,72 @@ export default function TransactionDetailsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
-            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
+            <StatusBar
+                barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+                backgroundColor={theme.headerBackground}
+            />
 
-            {/* Header */}
-            <View style={styles.headerContainer}>
-                <LinearGradient
-                    colors={['#FF416C', '#FF4B2B']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.headerBackground}
-                />
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.topBar}>
-                        <IconButton
-                            icon="arrow-back"
-                            onPress={() => router.back()}
-                            variant="ghost"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-                            color="#fff"
-                        />
-                        <Text style={styles.headerTitle}>Transaction</Text>
-                        <IconButton
-                            icon="create-outline"
-                            onPress={() => router.push(`/transactions/edit?id=${id}`)}
-                            variant="ghost"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-                            color="#fff"
-                        />
-                    </View>
-                </SafeAreaView>
-            </View>
+            <ScreenHeader
+                title="Transaction"
+                onBack={() => router.back()}
+                onAction={() => router.push(`/transactions/edit?id=${id}`)}
+                actionIcon="create-outline"
+            />
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
-                {/* Amount Card */}
                 <Card style={styles.amountCard} elevated>
-                    <View style={styles.iconContainer}>
-                        <View style={[styles.iconCircle, { backgroundColor: getStatusColor(transaction.status) + '20' }]}>
-                            <Ionicons
-                                name={transaction.status === 'paid' ? 'checkmark' : (transaction.status === 'failed' ? 'close' : 'time')}
-                                size={32}
-                                color={getStatusColor(transaction.status)}
-                            />
-                        </View>
-                    </View>
-
+                    <Text style={[styles.amountLabel, { color: theme.textSecondary }]}>Amount</Text>
                     <Text style={[styles.amount, { color: theme.textPrimary }]}>
                         {formatCurrency(transaction.amount, transaction.currency)}
                     </Text>
-
-                    <Badge
-                        label={transaction.status.toUpperCase()}
-                        variant="default"
-                        style={{ backgroundColor: getStatusColor(transaction.status), marginTop: spacing.sm }}
-                        textStyle={{ color: '#fff' }}
-                    />
-
-                    <Text style={[styles.date, { color: theme.textTertiary }]}>
-                        {new Date(transaction.transaction_date).toLocaleDateString()}
-                    </Text>
+                    <View style={styles.statusRow}>
+                        <Badge
+                            label={transaction.status}
+                            variant="default"
+                            style={{ backgroundColor: getStatusColor(transaction.status) + '20' }}
+                            textStyle={{ color: getStatusColor(transaction.status) }}
+                        />
+                        <Badge
+                            label={transaction.category}
+                            variant="default"
+                            style={{ backgroundColor: theme.backgroundSecondary }}
+                        />
+                    </View>
                 </Card>
 
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>DETAILS</Text>
                     <Card style={styles.detailsCard}>
                         <View style={styles.detailRow}>
-                            <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Category</Text>
-                            <Text style={[styles.detailValue, { color: theme.textPrimary }]}>{transaction.category}</Text>
+                            <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Date</Text>
+                            <Text style={[styles.detailValue, { color: theme.textPrimary }]}>
+                                {new Date(transaction.transaction_date).toLocaleDateString()}
+                            </Text>
                         </View>
-                        {transaction.notes && (
-                            <>
-                                <View style={styles.divider} />
-                                <View style={styles.detailRow}>
-                                    <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Notes</Text>
-                                    <Text style={[styles.detailValue, { color: theme.textPrimary }]}>{transaction.notes}</Text>
-                                </View>
-                            </>
-                        )}
+                        <View style={[styles.separator, { backgroundColor: theme.border }]} />
+                        <View style={styles.detailRow}>
+                            <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Payment Method</Text>
+                            <Text style={[styles.detailValue, { color: theme.textPrimary }]}>
+                                {transaction.payment_method || 'Not specified'}
+                            </Text>
+                        </View>
                     </Card>
                 </View>
 
-                {/* Related Contact */}
+                {transaction.notes && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>NOTES</Text>
+                        <Card style={styles.contentCard}>
+                            <Text style={[styles.description, { color: theme.textPrimary }]}>
+                                {transaction.notes}
+                            </Text>
+                        </Card>
+                    </View>
+                )}
+
                 {transaction.contact && (
                     <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>PAYER / PAYEE</Text>
+                        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>CONTACT</Text>
                         <Card
                             style={styles.contactCard}
                             onPress={() => router.push(`/contact/${transaction.contact.id}`)}
@@ -206,7 +181,6 @@ export default function TransactionDetailsScreen() {
                         </Card>
                     </View>
                 )}
-
             </ScrollView>
         </View>
     );
@@ -215,53 +189,22 @@ export default function TransactionDetailsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerContainer: {
-        width: '100%',
-        paddingBottom: spacing.lg,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        overflow: 'hidden',
-        backgroundColor: '#FF4B2B',
-        shadowColor: '#FF4B2B',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-        elevation: 5,
-        zIndex: 10,
-    },
-    headerBackground: { ...StyleSheet.absoluteFillObject },
-    safeArea: {
-        paddingTop: Platform.OS === 'android' ? 40 : 0,
-        paddingHorizontal: spacing.md,
-    },
-    topBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.xs,
-        marginTop: spacing.sm,
-        height: 48
-    },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-
     content: { padding: spacing.md, paddingBottom: 100 },
-
-    amountCard: { borderRadius: 20, padding: spacing.xl, marginBottom: spacing.lg, alignItems: 'center' },
-    iconContainer: { marginBottom: spacing.md },
-    iconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-    amount: { fontSize: 36, fontWeight: 'bold', marginBottom: 4 },
-    date: { marginTop: spacing.md, fontSize: 14 },
-
+    amountCard: { borderRadius: borderRadius.xl, padding: spacing.xl, marginBottom: spacing.lg, alignItems: 'center' },
+    amountLabel: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.medium, marginBottom: spacing.xs },
+    amount: { fontSize: typography.fontSize['4xl'], fontWeight: typography.fontWeight.bold, marginBottom: spacing.md },
+    statusRow: { flexDirection: 'row', gap: spacing.sm },
     section: { marginBottom: spacing.lg },
-    sectionTitle: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1, marginBottom: spacing.sm, marginLeft: 4 },
-    detailsCard: { padding: spacing.md, borderRadius: 16 },
+    sectionTitle: { fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.bold, letterSpacing: 1, marginBottom: spacing.sm, marginLeft: 4 },
+    detailsCard: { padding: spacing.md, borderRadius: borderRadius.lg },
     detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm },
-    detailLabel: { fontSize: 14 },
-    detailValue: { fontSize: 14, fontWeight: '600', maxWidth: '60%', textAlign: 'right' },
-    divider: { height: 1, backgroundColor: '#eee', marginVertical: 4 },
-
-    contactCard: { padding: spacing.md, borderRadius: 16 },
+    detailLabel: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.medium },
+    detailValue: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold },
+    separator: { height: 1 },
+    contentCard: { padding: spacing.md, borderRadius: borderRadius.lg },
+    description: { fontSize: typography.fontSize.base, lineHeight: typography.fontSize.base * 1.5 },
+    contactCard: { padding: spacing.md, borderRadius: borderRadius.lg },
     contactRow: { flexDirection: 'row', alignItems: 'center' },
-    contactName: { fontSize: 16, fontWeight: 'bold' },
-    contactSub: { fontSize: 14, marginTop: 2 },
+    contactName: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.bold },
+    contactSub: { fontSize: typography.fontSize.sm, marginTop: 2 },
 });

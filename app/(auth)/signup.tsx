@@ -1,47 +1,40 @@
 /**
- * Signup Screen
+ * Signup Screen - Uber Style
  * 
- * Premium redesign with:
- * - Gradient background
- * - Animated form entry
- * - Theme-aware components
- * - OAuth integration
+ * Clean, minimal signup with black/white aesthetic
  */
 
-import React, { useState, useEffect } from 'react';
+import { makeRedirectUri } from 'expo-auth-session';
+import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
+    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    Alert,
-    Image,
-    Dimensions,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { spacing, typography, borderRadius } from '@/constants/tokens';
 
-import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const { width } = Dimensions.get('window');
 
 export default function SignupScreen() {
     const router = useRouter();
     const { signUp } = useAuth();
     const { theme, colorScheme } = useTheme();
+    const insets = useSafeAreaInsets();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -130,102 +123,104 @@ export default function SignupScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={
-                    colorScheme === 'dark'
-                        ? ['#2c3e50', '#000000']
-                        : ['#e0eafc', '#cfdef3']
-                }
-                style={styles.gradient}
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardView}
             >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.keyboardView}
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        {
+                            paddingTop: insets.top + 40,
+                            paddingBottom: insets.bottom + 40,
+                        }
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    <ScrollView
-                        contentContainerStyle={styles.scrollContent}
-                        showsVerticalScrollIndicator={false}
-                    >
-                        <Animated.View entering={FadeInUp.delay(200).springify()} style={styles.header}>
-                            {/* Placeholder Logo - In real app, use generic icon or text if logo image is missing */}
-                            <View style={[styles.logoPlaceholder, { backgroundColor: theme.primary }]}>
-                                <Text style={styles.logoText}>C</Text>
-                            </View>
-                            <Text style={[styles.title, { color: theme.textPrimary }]}>Create Account</Text>
-                            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Join us today!</Text>
-                        </Animated.View>
+                    <Animated.View entering={FadeInUp.delay(100).springify()} style={styles.header}>
+                        <View style={[styles.logoContainer, { backgroundColor: theme.textPrimary }]}>
+                            <Text style={[styles.logoText, { color: theme.textInverse }]}>C</Text>
+                        </View>
+                        <Text style={[styles.title, { color: theme.textPrimary }]}>Create Account</Text>
+                        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Join Contour today</Text>
+                    </Animated.View>
 
-                        <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.form}>
-                            <Input
-                                label="Email"
-                                value={email}
-                                onChangeText={setEmail}
-                                placeholder="Enter your email"
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                leftIcon="mail-outline"
-                                error={emailError}
-                            />
+                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.form}>
+                        <Input
+                            label="Email"
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="Enter your email"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            leftIcon="mail-outline"
+                            error={emailError}
+                            size="lg"
+                        />
 
-                            <Input
-                                label="Password"
-                                value={password}
-                                onChangeText={setPassword}
-                                placeholder="Create a password"
-                                secureTextEntry
-                                leftIcon="lock-closed-outline"
-                                error={passwordError}
-                            />
+                        <Input
+                            label="Password"
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="Create a password"
+                            secureTextEntry
+                            leftIcon="lock-closed-outline"
+                            error={passwordError}
+                            size="lg"
+                        />
 
-                            <Input
-                                label="Confirm Password"
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
-                                placeholder="Confirm your password"
-                                secureTextEntry
-                                leftIcon="lock-closed-outline"
-                                error={confirmError}
-                            />
+                        <Input
+                            label="Confirm Password"
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            placeholder="Confirm your password"
+                            secureTextEntry
+                            leftIcon="lock-closed-outline"
+                            error={confirmError}
+                            size="lg"
+                        />
 
+                        <Button
+                            title="Create Account"
+                            onPress={handleSignup}
+                            loading={loading}
+                            size="xl"
+                            fullWidth
+                            style={{ marginTop: spacing.sm }}
+                        />
+
+                        <View style={styles.divider}>
+                            <View style={[styles.line, { backgroundColor: theme.border }]} />
+                            <Text style={[styles.dividerText, { color: theme.textSecondary }]}>OR</Text>
+                            <View style={[styles.line, { backgroundColor: theme.border }]} />
+                        </View>
+
+                        <Button
+                            title="Continue with Google"
+                            onPress={handleGoogleLogin}
+                            variant="outline"
+                            loading={googleLoading}
+                            icon="logo-google"
+                            size="lg"
+                            fullWidth
+                        />
+
+                        <View style={styles.footer}>
+                            <Text style={[styles.footerText, { color: theme.textSecondary }]}>
+                                Already have an account?
+                            </Text>
                             <Button
-                                title="Sign Up"
-                                onPress={handleSignup}
-                                loading={loading}
-                                style={styles.button}
-                                size="lg"
+                                title="Sign In"
+                                variant="ghost"
+                                size="sm"
+                                onPress={() => router.push('/login')}
                             />
-
-                            <View style={styles.divider}>
-                                <View style={[styles.line, { backgroundColor: theme.border }]} />
-                                <Text style={[styles.dividerText, { color: theme.textSecondary }]}>OR</Text>
-                                <View style={[styles.line, { backgroundColor: theme.border }]} />
-                            </View>
-
-                            <Button
-                                title="Continue with Google"
-                                onPress={handleGoogleLogin}
-                                variant="outline"
-                                loading={googleLoading}
-                                icon="logo-google"
-                            />
-
-                            <View style={styles.footer}>
-                                <Text style={[styles.footerText, { color: theme.textSecondary }]}>
-                                    Already have an account?
-                                </Text>
-                                <Button
-                                    title="Sign In"
-                                    variant="ghost"
-                                    size="sm"
-                                    onPress={() => router.push('/login')}
-                                    style={styles.linkButton}
-                                />
-                            </View>
-                        </Animated.View>
-                    </ScrollView>
-                </KeyboardAvoidingView>
-            </LinearGradient>
+                        </View>
+                    </Animated.View>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 }
@@ -234,53 +229,40 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    gradient: {
-        flex: 1,
-    },
     keyboardView: {
         flex: 1,
     },
     scrollContent: {
         flexGrow: 1,
-        justifyContent: 'center',
-        padding: spacing.xl,
-        paddingTop: 60,
+        paddingHorizontal: spacing.lg,
     },
     header: {
         alignItems: 'center',
         marginBottom: spacing.xl,
     },
-    logoPlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: 24,
+    logoContainer: {
+        width: 72,
+        height: 72,
+        borderRadius: borderRadius.xl,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: spacing.lg,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
     },
     logoText: {
-        fontSize: 40,
-        fontWeight: 'bold',
-        color: 'white',
+        fontSize: typography.fontSize['4xl'],
+        fontWeight: typography.fontWeight.bold,
     },
     title: {
         fontSize: typography.fontSize['3xl'],
         fontWeight: typography.fontWeight.bold,
         marginBottom: spacing.xs,
+        letterSpacing: typography.letterSpacing.tight,
     },
     subtitle: {
         fontSize: typography.fontSize.lg,
     },
     form: {
-        gap: spacing.md,
-    },
-    button: {
-        marginTop: spacing.sm,
+        gap: spacing.sm,
     },
     divider: {
         flexDirection: 'row',
@@ -304,8 +286,5 @@ const styles = StyleSheet.create({
     },
     footerText: {
         fontSize: typography.fontSize.base,
-    },
-    linkButton: {
-        marginLeft: -8,
     },
 });

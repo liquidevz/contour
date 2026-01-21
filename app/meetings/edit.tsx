@@ -1,22 +1,18 @@
 /**
- * Edit Meeting Screen
- * 
- * Form for Creating/Editing Meetings.
+ * Edit Meeting Screen - With ScreenHeader
  */
 
-import { spacing } from '@/constants/tokens';
+import { spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CREATE_MEETING, UPDATE_MEETING } from '@/graphql/mutations';
 import { GET_MEETING_DETAILS } from '@/graphql/queries';
 import { executeGraphQL, executeGraphQLMutation } from '@/lib/graphql';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
     Platform,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -27,16 +23,15 @@ import {
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 
 export default function EditMeetingScreen() {
     const { id, contactId } = useLocalSearchParams();
     const isEditing = !!id;
     const router = useRouter();
-    const { theme } = useTheme();
+    const { theme, colorScheme } = useTheme();
 
     const [loading, setLoading] = useState(false);
-
-    // Form State
     const [title, setTitle] = useState('');
     const [meetingType, setMeetingType] = useState('online');
     const [location, setLocation] = useState('');
@@ -75,7 +70,6 @@ export default function EditMeetingScreen() {
                 location,
                 notes,
                 scheduledStart: date.toISOString(),
-                // If creating and contactId is present, link it.
                 ...(contactId ? { contactId } : {})
             };
 
@@ -100,41 +94,21 @@ export default function EditMeetingScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
-            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
+            <StatusBar
+                barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+                backgroundColor={theme.headerBackground}
+            />
 
-            {/* Header */}
-            <View style={styles.headerContainer}>
-                <LinearGradient
-                    colors={['#FF416C', '#FF4B2B']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.headerBackground}
-                />
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.topBar}>
-                        <Button
-                            title="Cancel"
-                            variant="ghost"
-                            onPress={() => router.back()}
-                            style={{ paddingHorizontal: 0 }}
-                            textStyle={{ color: '#fff' }}
-                        />
-                        <Text style={styles.headerTitle}>{isEditing ? 'Edit Meeting' : 'New Meeting'}</Text>
-                        <Button
-                            title="Save"
-                            variant="ghost"
-                            onPress={handleSave}
-                            loading={loading}
-                            style={{ paddingHorizontal: 0 }}
-                            textStyle={{ color: '#fff', fontWeight: 'bold' }}
-                        />
-                    </View>
-                </SafeAreaView>
-            </View>
+            <ScreenHeader
+                title={isEditing ? 'Edit Meeting' : 'New Meeting'}
+                onBack={() => router.back()}
+                onAction={handleSave}
+                actionLabel="Save"
+                actionLoading={loading}
+            />
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
                     <Input
                         label="Title"
                         placeholder="Meeting Title"
@@ -143,7 +117,6 @@ export default function EditMeetingScreen() {
                         autoFocus={!isEditing}
                     />
 
-                    {/* Date Picker Placeholder */}
                     <View style={styles.section}>
                         <Text style={[styles.label, { color: theme.textSecondary }]}>Date & Time</Text>
                         <Button
@@ -154,7 +127,6 @@ export default function EditMeetingScreen() {
                         />
                     </View>
 
-                    {/* Type Selector */}
                     <View style={styles.section}>
                         <Text style={[styles.label, { color: theme.textSecondary }]}>Type</Text>
                         <View style={styles.selectorRow}>
@@ -167,10 +139,10 @@ export default function EditMeetingScreen() {
                                     style={{
                                         flex: 1,
                                         justifyContent: 'center',
-                                        backgroundColor: meetingType === t ? theme.primary : 'transparent',
+                                        backgroundColor: meetingType === t ? theme.textPrimary : 'transparent',
                                         borderColor: meetingType === t ? 'transparent' : theme.border
                                     }}
-                                    textStyle={{ color: meetingType === t ? '#fff' : theme.textSecondary }}
+                                    textStyle={{ color: meetingType === t ? theme.textInverse : theme.textSecondary }}
                                 />
                             ))}
                         </View>
@@ -190,9 +162,8 @@ export default function EditMeetingScreen() {
                         onChangeText={setNotes}
                         multiline
                         numberOfLines={4}
-                        containerStyle={{ height: 120 }}
+                        style={{ minHeight: 100, textAlignVertical: 'top' }}
                     />
-
                 </ScrollView>
             </KeyboardAvoidingView>
         </View>
@@ -201,36 +172,8 @@ export default function EditMeetingScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    headerContainer: {
-        width: '100%',
-        paddingBottom: spacing.lg,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        overflow: 'hidden',
-        backgroundColor: '#FF4B2B',
-        shadowColor: '#FF4B2B',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-        elevation: 5,
-        zIndex: 10,
-    },
-    headerBackground: { ...StyleSheet.absoluteFillObject },
-    safeArea: {
-        paddingTop: Platform.OS === 'android' ? 40 : 0,
-        paddingHorizontal: spacing.md,
-    },
-    topBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.xs,
-        marginTop: spacing.sm,
-        height: 48
-    },
-    headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
-    content: { padding: spacing.lg },
+    content: { padding: spacing.lg, paddingBottom: 100 },
     section: { marginBottom: spacing.lg },
-    label: { fontSize: 14, fontWeight: '600', marginBottom: spacing.sm },
+    label: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold, marginBottom: spacing.sm },
     selectorRow: { flexDirection: 'row', gap: spacing.sm },
 });
