@@ -3,6 +3,8 @@
 # dependencies
 node_modules/
 
+contour.apk
+
 # Expo
 .expo/
 dist/
