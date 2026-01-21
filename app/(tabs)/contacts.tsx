@@ -1,46 +1,48 @@
 /**
- * Home Screen - Contacts List
+ * Contacts Screen
  * 
- * Premium redesign with:
- * - Gradient backgrounds
- * - Animated interactions
- * - Search functionality
- * - Modern contact cards
+ * Revamped to match the new design system:
+ * - Red Gradient Header with integrated Search
+ * - Card-based list layout
+ * - Floating Action Button for quick actions
  */
 
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as Contacts from 'expo-contacts';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
+  ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
+  Platform,
   RefreshControl,
-  Alert,
-  ActivityIndicator,
-  TouchableOpacity,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import * as Contacts from 'expo-contacts';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 
-import { executeGraphQL, executeGraphQLMutation } from '@/lib/graphql';
-import { GET_CONTACTS } from '@/graphql/queries';
-import { CREATE_CONTACT, DELETE_CONTACT } from '@/graphql/mutations';
+import { spacing } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/tokens';
+import { CREATE_CONTACT, DELETE_CONTACT } from '@/graphql/mutations';
+import { GET_CONTACTS } from '@/graphql/queries';
+import { executeGraphQL, executeGraphQLMutation } from '@/lib/graphql';
 
 // UI Components
-import Card from '@/components/ui/Card';
-import Avatar from '@/components/ui/Avatar';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
 import AnimatedFAB from '@/components/ui/AnimatedFAB';
+import Avatar from '@/components/ui/Avatar';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
 import IconButton from '@/components/ui/IconButton';
+import Input from '@/components/ui/Input';
 
 interface Contact {
   id: string;
@@ -53,9 +55,9 @@ interface Contact {
   is_completed_profile: boolean;
 }
 
-export default function HomeScreen() {
+export default function ContactsScreen() {
   const router = useRouter();
-  const { theme, colorScheme } = useTheme();
+  const { theme } = useTheme();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,11 +92,9 @@ export default function HomeScreen() {
         // Safely handle tags if they come as string
         if (node.tags && typeof node.tags === 'string') {
           try {
-            // If it's a JSON string
             if (node.tags.startsWith('[')) {
               node.tags = JSON.parse(node.tags);
             } else {
-              // If it's comma separated
               node.tags = node.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
             }
           } catch (e) {
@@ -173,11 +173,11 @@ export default function HomeScreen() {
 
     setCreating(true);
     let successCount = 0;
+    let lastImportedId: string | null = null;
 
     const selectedContacts = allPhoneContacts.filter(c => selectedContactIds.has(c.id || ''));
 
     for (const contact of selectedContacts) {
-      // Prioritize mobile number, otherwise take the first available
       let phoneNumber = '';
       if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
         const mobile = contact.phoneNumbers.find(p => p.label === 'mobile' || p.label === 'Mobile');
@@ -205,7 +205,6 @@ export default function HomeScreen() {
 
         if (result.error) {
           if (result.error.message.includes('unique constraint') || result.error.message.includes('contacts_name_key')) {
-            // Retry with modified name
             const newName = `${name} (${Math.floor(Math.random() * 1000)})`;
             result = await executeGraphQLMutation(
               CREATE_CONTACT.loc?.source.body || '',
@@ -223,6 +222,9 @@ export default function HomeScreen() {
 
         if (!result.error) {
           successCount++;
+          if (result.data?.insertIntocontactsCollection?.records?.[0]?.id) {
+            lastImportedId = result.data.insertIntocontactsCollection.records[0].id;
+          }
         }
       } catch (e) {
         console.error('Failed to import contact', name, e);
@@ -234,7 +236,22 @@ export default function HomeScreen() {
     fetchContacts();
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Success', `Imported ${successCount} contacts`);
+
+    if (successCount === 1 && lastImportedId) {
+      Alert.alert(
+        'Contact Imported',
+        'Please complete the profile details.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push(`/contact/edit?id=${lastImportedId}`)
+          }
+        ],
+        { cancelable: false }
+      );
+    } else {
+      Alert.alert('Success', `Imported ${successCount} contacts`);
+    }
   };
 
   const handleCreate = async () => {
@@ -245,7 +262,6 @@ export default function HomeScreen() {
 
     setCreating(true);
 
-    // Parse tags
     const tagsArray = tagsInput.split(',').map(t => t.trim()).filter(t => t);
 
     const result = await executeGraphQLMutation(
@@ -315,19 +331,23 @@ export default function HomeScreen() {
       elevated
     >
       <View style={styles.cardRow}>
-        <Avatar name={item.name} size="md" />
+        <Avatar name={item.name || '?'} size="md" />
 
         <View style={styles.cardContent}>
           <Text style={[styles.cardName, { color: theme.textPrimary }]}>{item.name}</Text>
-
+          {(item.designation || item.company_name) && (
+            <Text style={[styles.cardSubtitle, { color: theme.textSecondary }]}>
+              {item.designation && item.company_name ? `${item.designation} at ${item.company_name}` : (item.designation || item.company_name)}
+            </Text>
+          )}
 
           {Array.isArray(item.tags) && item.tags.length > 0 && (
             <View style={styles.tagContainer}>
               {item.tags.slice(0, 2).map((tag, index) => (
-                <Badge key={index} label={tag} variant="default" />
+                <Badge key={index} label={tag} variant="default" style={{ backgroundColor: theme.backgroundSecondary }} />
               ))}
               {item.tags.length > 2 && (
-                <Badge label={`+${item.tags.length - 2}`} variant="default" />
+                <Badge label={`+${item.tags.length - 2}`} variant="default" style={{ backgroundColor: theme.backgroundSecondary }} />
               )}
             </View>
           )}
@@ -336,7 +356,9 @@ export default function HomeScreen() {
         <IconButton
           icon="trash-outline"
           size="sm"
-          variant="default"
+          variant="ghost"
+          style={{ backgroundColor: '#fee2e2' }}
+          color="#ef4444"
           onPress={() => handleDeleteContact(item.id, item.name)}
         />
       </View>
@@ -344,169 +366,163 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={
-          colorScheme === 'dark'
-            ? ['#0a0a0a', '#1a1a1a']
-            : ['#ffffff', '#f8f9fa']
-        }
-        style={styles.gradient}
-      >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.title, { color: theme.textPrimary }]}>Contacts</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-              {contacts.length} {contacts.length === 1 ? 'Contact' : 'Contacts'}
-            </Text>
-          </View>
-          <IconButton
-            icon="add-circle-outline"
-            size="lg"
-            variant="primary"
-            onPress={handleImportContact}
-          />
-        </View>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Input
-            placeholder="Search contacts..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            leftIcon="search-outline"
-            containerStyle={{ marginBottom: 0 }}
-          />
-        </View>
-
-        {/* Contact List */}
-        {loading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
-          </View>
-        ) : (
-          <FlatList
-            data={filteredContacts}
-            keyExtractor={(item) => item.id}
-            renderItem={renderContactItem}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => fetchContacts(true)}
-                tintColor={theme.primary}
-              />
-            }
-            ListEmptyComponent={
-              <View style={styles.centerContainer}>
-                <Ionicons name="people-outline" size={64} color={theme.textTertiary} />
-                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                  {searchQuery ? 'No matching contacts found' : 'No contacts yet'}
-                </Text>
-                {!searchQuery && (
-                  <Button
-                    title="Import Contacts"
-                    onPress={handleImportContact}
-                    style={{ marginTop: spacing.lg }}
-                  />
-                )}
-              </View>
-            }
-          />
-        )}
-
-        {/* Create FAB - Now triggers Import Flow */}
-        <AnimatedFAB
-          icon="add"
-          onPress={handleImportContact}
-          label="New Contact"
-          position="bottom-right"
+      {/* Header */}
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={['#FF416C', '#FF4B2B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.headerBackground}
         />
-
-        {/* Contact Picker Modal */}
-        <Modal visible={contactListModalVisible} animationType="slide" presentationStyle="pageSheet">
-          <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-              <Button title="Cancel" onPress={() => setContactListModalVisible(false)} variant="ghost" size="sm" />
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                {selectedContactIds.size === 0 ? 'Select Contacts' : `${selectedContactIds.size} Selected`}
-              </Text>
-              <Button
-                title={selectedContactIds.size > 0 ? `Import (${selectedContactIds.size})` : "Manual Create"}
-                onPress={() => {
-                  if (selectedContactIds.size > 0) {
-                    handleBulkImport();
-                  } else {
-                    setContactListModalVisible(false);
-                    setModalVisible(true);
-                  }
-                }}
-                variant={selectedContactIds.size > 0 ? "primary" : "ghost"}
-                size="sm"
-                loading={creating}
-              />
-            </View>
-            <FlatList
-              data={allPhoneContacts}
-              keyExtractor={(item) => (item as any).id || Math.random().toString()}
-              renderItem={({ item }) => {
-                const isSelected = selectedContactIds.has((item as any).id);
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.contactRow,
-                      { borderBottomColor: theme.border },
-                      isSelected && { backgroundColor: theme.primary + '20' } // 20% opacity primary color
-                    ]}
-                    onPress={() => toggleContactSelection((item as any).id)}
-                  >
-                    <View style={styles.contactRowContent}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.contactRowName, { color: theme.textPrimary }]}>{item.name}</Text>
-                        {item.phoneNumbers && item.phoneNumbers.length > 0 && (
-                          <Text style={[styles.contactRowPhone, { color: theme.textSecondary }]}>
-                            {item.phoneNumbers[0].number}
-                          </Text>
-                        )}
-                      </View>
-                      {isSelected && (
-                        <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.topBar}>
+            <Text style={styles.headerTitle}>Contacts</Text>
+            <IconButton
+              icon="person-add-outline"
+              color="#fff"
+              variant="ghost"
+              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+              onPress={handleImportContact}
             />
           </View>
-        </Modal>
 
-        {/* Create/Edit Modal */}
-        <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
-          <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-              <Button title="Cancel" onPress={() => setModalVisible(false)} variant="ghost" />
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>New Contact</Text>
-              <Button
-                title="Save"
-                onPress={handleCreate}
-                loading={creating}
-                disabled={creating}
-              />
-            </View>
-
-            <ScrollView contentContainerStyle={styles.formContent}>
-              <Input label="Name *" value={name} onChangeText={setName} placeholder="Full Name" />
-              <Input label="Phone" value={phone} onChangeText={setPhone} placeholder="+1234567890" keyboardType="phone-pad" />
-              <Input label="Email" value={email} onChangeText={setEmail} placeholder="john@example.com" keyboardType="email-address" autoCapitalize="none" />
-              <Input label="Designation" value={designation} onChangeText={setDesignation} placeholder="e.g. CEO" />
-              <Input label="Company" value={companyName} onChangeText={setCompanyName} placeholder="Company Name" />
-              <Input label="Tags" value={tagsInput} onChangeText={setTagsInput} placeholder="lead, urgent (comma separated)" />
-            </ScrollView>
+          {/* Search Bar Embedded in Header */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+            <Input
+              placeholder="Search contacts..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              containerStyle={{ marginBottom: 0, flex: 1, borderWidth: 0 }}
+              style={{ borderWidth: 0, backgroundColor: 'transparent', height: '100%' }}
+              placeholderTextColor="#999"
+            />
           </View>
-        </Modal>
-      </LinearGradient>
+        </SafeAreaView>
+      </View>
+
+      {/* Contact List */}
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredContacts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderContactItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchContacts(true)}
+              tintColor={theme.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.centerContainer}>
+              <Ionicons name="people-outline" size={64} color={theme.textTertiary} />
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                {searchQuery ? 'No matching contacts found' : 'No contacts yet'}
+              </Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Floating Action Button */}
+      <AnimatedFAB
+        icon="add"
+        onPress={() => setModalVisible(true)}
+        label="Create"
+        position="bottom-right"
+      />
+
+      {/* Contact Picker Modal */}
+      <Modal visible={contactListModalVisible} animationType="slide" presentationStyle="pageSheet">
+        <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <Button title="Cancel" onPress={() => setContactListModalVisible(false)} variant="ghost" size="sm" />
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+              {selectedContactIds.size === 0 ? 'Select Contacts' : `${selectedContactIds.size} Selected`}
+            </Text>
+            <Button
+              title={selectedContactIds.size > 0 ? `Import (${selectedContactIds.size})` : "Manual Create"}
+              onPress={() => {
+                if (selectedContactIds.size > 0) {
+                  handleBulkImport();
+                } else {
+                  setContactListModalVisible(false);
+                  setModalVisible(true);
+                }
+              }}
+              variant={selectedContactIds.size > 0 ? "primary" : "ghost"}
+              size="sm"
+              loading={creating}
+            />
+          </View>
+          <FlatList
+            data={allPhoneContacts}
+            keyExtractor={(item) => (item as any).id || Math.random().toString()}
+            renderItem={({ item }) => {
+              const isSelected = selectedContactIds.has((item as any).id);
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.contactRow,
+                    { borderBottomColor: theme.border },
+                    isSelected && { backgroundColor: theme.primary + '20' }
+                  ]}
+                  onPress={() => toggleContactSelection((item as any).id)}
+                >
+                  <View style={styles.contactRowContent}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.contactRowName, { color: theme.textPrimary }]}>{item.name}</Text>
+                      {item.phoneNumbers && item.phoneNumbers.length > 0 && (
+                        <Text style={[styles.contactRowPhone, { color: theme.textSecondary }]}>
+                          {item.phoneNumbers[0].number}
+                        </Text>
+                      )}
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </View>
+      </Modal>
+
+      {/* Create/Edit Modal */}
+      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
+        <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <Button title="Cancel" onPress={() => setModalVisible(false)} variant="ghost" />
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>New Contact</Text>
+            <Button
+              title="Save"
+              onPress={handleCreate}
+              loading={creating}
+              disabled={creating}
+            />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.formContent}>
+            <Input label="Name *" value={name} onChangeText={setName} placeholder="Full Name" />
+            <Input label="Phone" value={phone} onChangeText={setPhone} placeholder="+1234567890" keyboardType="phone-pad" />
+            <Input label="Email" value={email} onChangeText={setEmail} placeholder="john@example.com" keyboardType="email-address" autoCapitalize="none" />
+            <Input label="Designation" value={designation} onChangeText={setDesignation} placeholder="e.g. CEO" />
+            <Input label="Company" value={companyName} onChangeText={setCompanyName} placeholder="Company Name" />
+            <Input label="Tags" value={tagsInput} onChangeText={setTagsInput} placeholder="lead, urgent (comma separated)" />
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -515,35 +531,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gradient: {
-    flex: 1,
+  headerContainer: {
+    width: '100%',
+    paddingBottom: spacing.lg,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    overflow: 'hidden',
+    backgroundColor: '#FF4B2B', // Fallback
+    shadowColor: '#FF4B2B',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 5,
+    zIndex: 10,
   },
-  header: {
+  headerBackground: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  safeArea: {
+    paddingTop: Platform.OS === 'android' ? 40 : 0,
+    paddingHorizontal: spacing.md,
+  },
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: 60,
-    paddingBottom: spacing.md,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
   },
-  title: {
-    fontSize: typography.fontSize['3xl'],
-    fontWeight: typography.fontWeight.bold,
-  },
-  subtitle: {
-    fontSize: typography.fontSize.sm,
-    marginTop: 4,
+  headerTitle: {
+    fontSize: 34,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   searchContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: spacing.md,
+    height: 50,
+  },
+  searchIcon: {
+    marginRight: spacing.sm,
   },
   listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 100, // Space for FAB
+    padding: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: 100,
   },
   card: {
     marginBottom: spacing.md,
+    borderRadius: 16,
+    padding: spacing.md,
   },
   cardRow: {
     flexDirection: 'row',
@@ -555,11 +595,11 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   cardName: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   cardSubtitle: {
-    fontSize: typography.fontSize.sm,
+    fontSize: 14,
     marginTop: 2,
   },
   tagContainer: {
@@ -572,11 +612,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 100,
+    paddingTop: 60,
   },
   emptyText: {
     marginTop: spacing.md,
-    fontSize: typography.fontSize.base,
+    fontSize: 16,
   },
   modalContainer: {
     flex: 1,
@@ -589,8 +629,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   modalTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
+    fontSize: 18,
+    fontWeight: '600',
   },
   formContent: {
     padding: spacing.lg,
@@ -605,11 +645,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   contactRowName: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontSize: 16,
+    fontWeight: '600',
   },
   contactRowPhone: {
     marginTop: 2,
-    fontSize: typography.fontSize.sm,
+    fontSize: 14,
   },
 });

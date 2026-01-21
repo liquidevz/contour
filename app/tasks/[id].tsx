@@ -1,32 +1,60 @@
 /**
  * Task Details Screen
  * 
- * "Beautiful" View UI with edit trigger.
+ * Read-only view of a single task.
+ * Includes "Edit" button to navigate to the edit form.
  */
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, StatusBar } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/tokens';
-import { executeGraphQL } from '@/lib/graphql';
-import { GET_TASK_DETAILS } from '@/graphql/queries';
-import IconButton from '@/components/ui/IconButton';
 import Avatar from '@/components/ui/Avatar';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
+import IconButton from '@/components/ui/IconButton';
+import { spacing } from '@/constants/tokens';
+import { useTheme } from '@/contexts/ThemeContext';
+import { GET_TASK_DETAILS } from '@/graphql/queries';
+import { executeGraphQL } from '@/lib/graphql';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    View
+} from 'react-native';
 
-export default function TaskDetailScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+interface TaskDetail {
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    due_date: string;
+    created_at: string;
+    contact: {
+        id: string;
+        name: string;
+        company_name: string;
+        designation: string;
+    };
+}
+
+export default function TaskDetailsScreen() {
+    const { id } = useLocalSearchParams();
     const router = useRouter();
     const { theme } = useTheme();
     const [loading, setLoading] = useState(true);
-    const [task, setTask] = useState<any>(null);
+    const [task, setTask] = useState<TaskDetail | null>(null);
 
-    const fetchDetails = async () => {
+    const fetchTaskDetails = async () => {
         setLoading(true);
+        if (typeof id !== 'string') return;
+
         const result = await executeGraphQL(GET_TASK_DETAILS.loc?.source.body || '', { id });
         if (result.data?.tasksCollection?.edges?.[0]?.node) {
             setTask(result.data.tasksCollection.edges[0].node);
@@ -35,16 +63,15 @@ export default function TaskDetailScreen() {
     };
 
     useEffect(() => {
-        fetchDetails();
+        fetchTaskDetails();
     }, [id]);
 
-    const handleEdit = () => {
-        if (task?.contact?.id) {
-            // @ts-ignore
-            router.push({
-                pathname: `/contact/${task.contact.id}`,
-                params: { editTask: task.id }
-            });
+    const getPriorityColor = (p: string) => {
+        switch (p) {
+            case 'high': return '#FF4B2B';
+            case 'medium': return '#FF9800';
+            case 'low': return '#4CAF50';
+            default: return theme.textSecondary;
         }
     };
 
@@ -59,94 +86,112 @@ export default function TaskDetailScreen() {
     if (!task) {
         return (
             <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
-                <Text>Task not found</Text>
+                <Text style={{ color: theme.textSecondary }}>Task not found.</Text>
+                <IconButton icon="arrow-back" onPress={() => router.back()} />
             </View>
         );
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: '#F5F7FA' }]}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
 
-            {/* Hero Header */}
+            {/* Header */}
             <View style={styles.headerContainer}>
                 <LinearGradient
                     colors={['#FF416C', '#FF4B2B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
                     style={styles.headerBackground}
                 />
-                <View style={styles.headerContent}>
-                    <View style={styles.topNav}>
-                        <IconButton icon="arrow-back" onPress={() => router.back()} variant="ghost" color="#fff" />
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.topBar}>
+                        <IconButton
+                            icon="arrow-back"
+                            onPress={() => router.back()}
+                            variant="ghost"
+                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+                            color="#fff"
+                        />
                         <Text style={styles.headerTitle}>Task Details</Text>
-                        <IconButton icon="pencil" onPress={handleEdit} variant="ghost" color="#fff" disabled={!task.contact} />
+                        <IconButton
+                            icon="create-outline"
+                            onPress={() => router.push(`/tasks/edit?id=${id}`)}
+                            variant="ghost"
+                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+                            color="#fff"
+                        />
                     </View>
-                </View>
-
-                {/* Contact Chip floating */}
-                {task.contact ? (
-                    <View style={styles.floatingCard}>
-                        <View style={styles.contactRow}>
-                            <Avatar name={task.contact.name || '?'} size="md" />
-                            <View style={{ marginLeft: spacing.md }}>
-                                <Text style={styles.contactLabel}>ASSIGNED CONTACT</Text>
-                                <Text style={styles.contactName}>{task.contact.name}</Text>
-                                {(task.contact.designation || task.contact.company_name) && (
-                                    <Text style={styles.contactSub}>
-                                        {task.contact.designation}{task.contact.designation && task.contact.company_name ? ' @ ' : ''}{task.contact.company_name}
-                                    </Text>
-                                )}
-                            </View>
-                        </View>
-                        {/* @ts-ignore */}
-                        <Ionicons name="chevron-forward" size={20} color="#ccc" onPress={() => router.push(`/contact/${task.contact.id}`)} />
-                    </View>
-                ) : (
-                    <View style={[styles.floatingCard, { justifyContent: 'center' }]}>
-                        <Text style={{ fontStyle: 'italic', color: '#999' }}>No contact assigned</Text>
-                    </View>
-                )}
+                </SafeAreaView>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                <Text style={styles.mainTitle}>{task.title}</Text>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-                <View style={styles.metaRow}>
-                    <Badge
-                        label={task.priority?.toUpperCase() || 'NORMAL'}
-                        variant="default"
-                        style={{ backgroundColor: task.priority === 'high' ? '#FFEBEE' : '#E8F5E9' }}
-                        textStyle={{ color: task.priority === 'high' ? '#D32F2F' : '#388E3C' }}
-                    />
-                    <Badge
-                        label={task.status?.replace('_', ' ').toUpperCase() || 'PENDING'}
-                        variant="outline"
-                    />
-                    {task.due_date && (
-                        <View style={styles.dateBadge}>
-                            <Ionicons name="calendar-outline" size={14} color="#666" />
-                            <Text style={styles.dateText}>{new Date(task.due_date).toLocaleDateString()}</Text>
+                {/* Meta Info Card */}
+                <Card style={styles.metaCard} elevated>
+                    <View style={styles.row}>
+                        <View style={styles.statusBadge}>
+                            <Badge
+                                label={task.status.replace('_', ' ')}
+                                variant="default"
+                                style={{ backgroundColor: theme.backgroundSecondary }}
+                            />
                         </View>
-                    )}
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>DESCRIPTION</Text>
-                    <Text style={styles.descriptionText}>
-                        {task.description || 'No description provided.'}
-                    </Text>
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>TIMELINE</Text>
-                    <View style={styles.timelineItem}>
-                        <View style={styles.timelineDot} />
-                        <View>
-                            <Text style={styles.timelineTitle}>Created</Text>
-                            <Text style={styles.timelineDate}>{new Date(task.created_at).toLocaleString()}</Text>
+                        <View style={styles.priorityContainer}>
+                            <View style={[styles.dot, { backgroundColor: getPriorityColor(task.priority) }]} />
+                            <Text style={[styles.priorityText, { color: getPriorityColor(task.priority) }]}>
+                                {task.priority.toUpperCase()} Priority
+                            </Text>
                         </View>
                     </View>
+
+                    <Text style={[styles.title, { color: theme.textPrimary }]}>{task.title}</Text>
+
+                    <View style={[styles.dateRow, { marginTop: spacing.sm }]}>
+                        <Ionicons name="calendar-outline" size={16} color={theme.textTertiary} />
+                        <Text style={[styles.dateText, { color: theme.textTertiary }]}>
+                            Due {new Date(task.due_date).toLocaleDateString()}
+                        </Text>
+                    </View>
+                </Card>
+
+                {/* Description */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>DESCRIPTION</Text>
+                    <Card style={styles.contentCard}>
+                        <Text style={[styles.description, { color: theme.textPrimary }]}>
+                            {task.description || 'No description provided.'}
+                        </Text>
+                    </Card>
                 </View>
+
+                {/* Related Contact */}
+                {task.contact && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>RELATED CONTACT</Text>
+                        <Card
+                            style={styles.contactCard}
+                            onPress={() => router.push(`/contact/${task.contact.id}`)}
+                            elevated
+                        >
+                            <View style={styles.contactRow}>
+                                <Avatar name={task.contact.name} size="md" />
+                                <View style={{ marginLeft: spacing.md, flex: 1 }}>
+                                    <Text style={[styles.contactName, { color: theme.textPrimary }]}>{task.contact.name}</Text>
+                                    {(task.contact.designation || task.contact.company_name) && (
+                                        <Text style={[styles.contactSub, { color: theme.textSecondary }]}>
+                                            {task.contact.designation && task.contact.company_name
+                                                ? `${task.contact.designation} at ${task.contact.company_name}`
+                                                : (task.contact.designation || task.contact.company_name)}
+                                        </Text>
+                                    )}
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
+                            </View>
+                        </Card>
+                    </View>
+                )}
 
             </ScrollView>
         </View>
@@ -156,43 +201,54 @@ export default function TaskDetailScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerContainer: { height: 200, marginBottom: 50 },
-    headerBackground: { ...StyleSheet.absoluteFillObject, height: 200, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
-    headerContent: { paddingTop: 60, paddingHorizontal: spacing.md },
-    topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    headerTitle: { fontSize: 20, fontWeight: '600', color: '#fff' },
-    floatingCard: {
-        position: 'absolute',
-        bottom: -40,
-        left: spacing.lg,
-        right: spacing.lg,
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: spacing.lg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.1,
-        shadowRadius: 24,
-        elevation: 10,
-        minHeight: 80,
+    headerContainer: {
+        width: '100%',
+        paddingBottom: spacing.lg,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        overflow: 'hidden',
+        backgroundColor: '#FF4B2B',
+        shadowColor: '#FF4B2B',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 5,
+        zIndex: 10,
     },
+    headerBackground: { ...StyleSheet.absoluteFillObject },
+    safeArea: {
+        paddingTop: Platform.OS === 'android' ? 40 : 0,
+        paddingHorizontal: spacing.md,
+    },
+    topBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+        marginTop: spacing.sm,
+        height: 48
+    },
+    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+
+    content: { padding: spacing.md, paddingBottom: 100 },
+
+    metaCard: { borderRadius: 20, padding: spacing.lg, marginBottom: spacing.lg },
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+    statusBadge: {},
+    priorityContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    priorityText: { fontSize: 13, fontWeight: '600' },
+    title: { fontSize: 24, fontWeight: 'bold', lineHeight: 32 },
+    dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    dateText: { fontSize: 14, fontWeight: '500' },
+
+    section: { marginBottom: spacing.lg },
+    sectionTitle: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1, marginBottom: spacing.sm, marginLeft: 4 },
+    contentCard: { padding: spacing.md, borderRadius: 16 },
+    description: { fontSize: 16, lineHeight: 24 },
+
+    contactCard: { padding: spacing.md, borderRadius: 16 },
     contactRow: { flexDirection: 'row', alignItems: 'center' },
-    contactLabel: { fontSize: 10, fontWeight: 'bold', color: '#999', letterSpacing: 1, marginBottom: 2 },
-    contactName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-    contactSub: { fontSize: 12, color: '#666', marginTop: 2 },
-    content: { padding: spacing.xl, paddingTop: 20 },
-    mainTitle: { fontSize: 28, fontWeight: 'bold', color: '#1A1A1A', marginBottom: spacing.md },
-    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xl },
-    dateBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#f0f0f0', borderRadius: 12 },
-    dateText: { fontSize: 12, fontWeight: '600', color: '#666' },
-    section: { marginBottom: spacing.xl },
-    sectionLabel: { fontSize: 12, fontWeight: 'bold', color: '#999', letterSpacing: 1.5, marginBottom: spacing.md },
-    descriptionText: { fontSize: 16, lineHeight: 26, color: '#444' },
-    timelineItem: { flexDirection: 'row', gap: spacing.md, paddingLeft: 4 },
-    timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF4B2B', marginTop: 6 },
-    timelineTitle: { fontSize: 14, fontWeight: '600', color: '#333' },
-    timelineDate: { fontSize: 12, color: '#999', marginTop: 2 },
+    contactName: { fontSize: 16, fontWeight: 'bold' },
+    contactSub: { fontSize: 14, marginTop: 2 },
 });

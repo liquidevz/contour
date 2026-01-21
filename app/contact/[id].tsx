@@ -1,64 +1,62 @@
 /**
  * Contact Details Screen
  * 
- * Premium redesign with:
- * - Gradient header with Avatar
- * - Animated tabs
- * - Card-based lists for Tasks, Meetings, Transactions
- * - Modern forms
+ * Displays full contact information and related Tasks, Meetings, and Transactions.
+ * Uses a tabbed interface (Custom Segmented Control) to switch between views.
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    Modal,
-    Alert,
-    RefreshControl,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-
-import { executeGraphQL, executeGraphQLMutation } from '@/lib/graphql';
-import { GET_CONTACT_DASHBOARD } from '@/graphql/queries';
-import {
-    COMPLETE_CONTACT_PROFILE,
-    CREATE_TASK,
-    CREATE_MEETING,
-    CREATE_TRANSACTION,
-    DELETE_TASK,
-    DELETE_MEETING,
-    DELETE_TRANSACTION,
-    UPDATE_TASK,
-    UPDATE_MEETING,
-    UPDATE_TRANSACTION,
-
-    UPDATE_CONTACT,
-} from '@/graphql/mutations';
-
+import Avatar from '@/components/ui/Avatar'; // Assuming Avatar component exists
+import Badge from '@/components/ui/Badge'; // Assuming Badge component exists
+import Card from '@/components/ui/Card'; // Assuming Card component exists
+import IconButton from '@/components/ui/IconButton'; // Assuming IconButton component exists
+import { spacing } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/tokens';
+import { GET_CONTACT_DASHBOARD } from '@/graphql/queries';
+import { executeGraphQL } from '@/lib/graphql';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Linking,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
-// UI Components
-import Card from '@/components/ui/Card';
-import Avatar from '@/components/ui/Avatar';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import IconButton from '@/components/ui/IconButton';
-import AnimatedFAB from '@/components/ui/AnimatedFAB';
+// Types based on the GraphQL query
+interface RelatedTask {
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    due_date: string;
+}
 
-type TabType = 'tasks' | 'meetings' | 'transactions';
+interface RelatedMeeting {
+    id: string;
+    title: string;
+    meeting_type: string;
+    status: string;
+    scheduled_start: string;
+}
 
-interface Contact {
+interface RelatedTransaction {
+    id: string;
+    amount: number;
+    currency: string;
+    category: string;
+    status: string;
+    transaction_date: string;
+}
+
+interface ContactDetails {
     id: string;
     name: string;
     phone: string | null;
@@ -67,285 +65,286 @@ interface Contact {
     company_name: string | null;
     tags: string[] | null;
     notes: string | null;
-    is_completed_profile: boolean;
+    tasksCollection: { edges: { node: RelatedTask }[] };
+    meetingsCollection: { edges: { node: RelatedMeeting }[] };
+    transactionsCollection: { edges: { node: RelatedTransaction }[] };
 }
 
-interface Task {
-    id: string;
-    title: string;
-    description: string | null;
-    priority: string;
-    status: string;
-    due_date: string | null;
-    created_at: string;
-}
-
-interface Meeting {
-    id: string;
-    title: string;
-    meeting_type: string;
-    status: string;
-    scheduled_start: string;
-    location: string | null;
-    notes: string | null;
-}
-
-interface Transaction {
-    id: string;
-    amount: number;
-    currency: string;
-    category: string | null;
-    status: string;
-    reference_id: string | null;
-    notes: string | null;
-}
+type TabType = 'info' | 'tasks' | 'meetings' | 'transactions';
 
 export default function ContactDetailsScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id } = useLocalSearchParams(); // Get ID from route params
     const router = useRouter();
-    const { theme, colorScheme } = useTheme();
-
-    // State
-    const [activeTab, setActiveTab] = useState<TabType>('tasks');
+    const { theme } = useTheme();
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [contact, setContact] = useState<Contact | null>(null);
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [meetings, setMeetings] = useState<Meeting[]>([]);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [contact, setContact] = useState<ContactDetails | null>(null);
+    const [activeTab, setActiveTab] = useState<TabType>('info');
 
-    // Modals
-    const [showProfileModal, setShowProfileModal] = useState(false);
-    const [showCreateModal, setShowCreateModal] = useState(false);
+    const fetchContactDetails = async () => {
+        setLoading(true);
+        if (typeof id !== 'string') return;
 
-    // Form fields
-    const [profileNotes, setProfileNotes] = useState('');
+        const result = await executeGraphQL(GET_CONTACT_DASHBOARD.loc?.source.body || '', { id });
 
-    // Generic Form State (reused for simplicity)
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
-    const [status, setStatus] = useState<string>('pending');
-
-    // Meeting specific
-    const [meetingType, setMeetingType] = useState<'call' | 'video' | 'in_person'>('call');
-    const [location, setLocation] = useState('');
-
-    // Transaction specific
-    const [amount, setAmount] = useState('');
-    const [category, setCategory] = useState<'To Pay' | 'To Receive'>('To Pay');
-    const [currency, setCurrency] = useState('USD');
-
-    // Loading states
-    const [creating, setCreating] = useState(false);
-
-    // Edit state
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [editMode, setEditMode] = useState<'create' | 'edit'>('create');
-
-    // Profile Edit State
-    const [profileName, setProfileName] = useState('');
-    const [profilePhone, setProfilePhone] = useState('');
-    const [profileEmail, setProfileEmail] = useState('');
-    const [profileDesignation, setProfileDesignation] = useState('');
-    const [profileCompany, setProfileCompany] = useState('');
-    const [profileTags, setProfileTags] = useState('');
-
-    const fetchData = async (isRefresh = false) => {
-        if (isRefresh) setRefreshing(true);
-        else setLoading(true);
-
-        const result = await executeGraphQL(
-            GET_CONTACT_DASHBOARD.loc?.source.body || '',
-            { id }
-        );
-
-        if (result.data) {
-            const contactData = result.data.contactsCollection?.edges?.[0]?.node;
-            setContact(contactData || null);
-            setTasks(contactData?.tasksCollection?.edges?.map((e: any) => e.node) || []);
-            setMeetings(contactData?.meetingsCollection?.edges?.map((e: any) => e.node) || []);
-            setTransactions(contactData?.transactionsCollection?.edges?.map((e: any) => e.node) || []);
-
-            if (contactData) {
-                setProfileNotes(contactData.notes || '');
-                setProfileName(contactData.name || '');
-                setProfilePhone(contactData.phone || '');
-                setProfileEmail(contactData.email || '');
-                setProfileDesignation(contactData.designation || '');
-                setProfileCompany(contactData.company_name || '');
-                // Handle tags if array or string
-                let tagsStr = '';
-                if (Array.isArray(contactData.tags)) tagsStr = contactData.tags.join(', ');
-                else if (typeof contactData.tags === 'string') tagsStr = contactData.tags;
-                setProfileTags(tagsStr);
+        if (result.data?.contactsCollection?.edges?.[0]?.node) {
+            const node = result.data.contactsCollection.edges[0].node;
+            // Parse tags if necessary (similar to contacts list logic)
+            if (node.tags && typeof node.tags === 'string') {
+                try {
+                    if (node.tags.startsWith('[')) {
+                        node.tags = JSON.parse(node.tags);
+                    } else {
+                        node.tags = node.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+                    }
+                } catch (e) {
+                    node.tags = [];
+                }
             }
+            setContact(node);
         }
-
         setLoading(false);
-        setRefreshing(false);
     };
 
     useEffect(() => {
-        fetchData();
+        fetchContactDetails();
     }, [id]);
 
-    const handleCompleteProfile = async () => {
-        if (!profileName.trim()) {
-            Alert.alert('Error', 'Name is required');
-            return;
-        }
-
-        setCreating(true);
-
-        const tagsArray = profileTags.split(',').map(t => t.trim()).filter(Boolean);
-
-        const result = await executeGraphQLMutation(UPDATE_CONTACT.loc?.source.body || '', {
-            id,
-            name: profileName,
-            phone: profilePhone || null,
-            email: profileEmail || null,
-            designation: profileDesignation || null,
-            companyName: profileCompany || null,
-            tags: JSON.stringify(tagsArray),
-            notes: profileNotes.trim() || null,
-            isCompletedProfile: true
-        });
-        setCreating(false);
-
-        if (result.error) {
-            Alert.alert('Error', result.error.message);
-        } else {
-            setShowProfileModal(false);
-            fetchData();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+    const handleCall = () => {
+        if (contact?.phone) Linking.openURL(`tel:${contact.phone}`);
     };
 
-    const handleCreate = async () => {
-        if ((activeTab === 'tasks' || activeTab === 'meetings') && !title.trim()) {
-            Alert.alert('Error', 'Title is required');
-            return;
-        }
-        if (activeTab === 'transactions' && !amount.trim()) {
-            Alert.alert('Error', 'Amount is required');
-            return;
-        }
-
-        setCreating(true);
-        let mutation, variables;
-
-        // Clean up inputs
-        const cleanTitle = title.trim();
-        const cleanDesc = description.trim() || null;
-        const cleanLoc = location.trim() || null;
-        const cleanAmount = parseFloat(amount) || 0;
-
-        if (activeTab === 'tasks') {
-            mutation = editMode === 'edit' ? UPDATE_TASK : CREATE_TASK;
-            variables = {
-                id: editMode === 'edit' ? editingId : undefined,
-                contactId: editMode === 'create' ? id : undefined,
-                title: cleanTitle,
-                description: cleanDesc,
-                priority,
-                status,
-                dueDate: null,
-            };
-        } else if (activeTab === 'meetings') {
-            mutation = editMode === 'edit' ? UPDATE_MEETING : CREATE_MEETING;
-            variables = {
-                id: editMode === 'edit' ? editingId : undefined,
-                contactId: editMode === 'create' ? id : undefined,
-                title: cleanTitle,
-                meetingType,
-                scheduledStart: new Date().toISOString(),
-                location: cleanLoc,
-                notes: cleanDesc,
-                status,
-            };
-        } else {
-            mutation = editMode === 'edit' ? UPDATE_TRANSACTION : CREATE_TRANSACTION;
-            variables = {
-                id: editMode === 'edit' ? editingId : undefined,
-                contactId: editMode === 'create' ? id : undefined,
-                amount: cleanAmount,
-                currency,
-                category,
-                status,
-                notes: cleanDesc,
-                transactionDate: new Date().toISOString(),
-            };
-        }
-
-        const result = await executeGraphQLMutation(mutation.loc?.source.body || '', variables);
-        setCreating(false);
-
-        if (result.error) {
-            Alert.alert('Error', result.error.message);
-        } else {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setShowCreateModal(false);
-            resetForms();
-            fetchData();
-        }
+    const handleEmail = () => {
+        if (contact?.email) Linking.openURL(`mailto:${contact.email}`);
     };
 
-    const handleDelete = async (itemId: string, type: TabType) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Alert.alert('Delete', 'Are you sure?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: async () => {
-                    let mutation;
-                    if (type === 'tasks') mutation = DELETE_TASK;
-                    else if (type === 'meetings') mutation = DELETE_MEETING;
-                    else mutation = DELETE_TRANSACTION;
-
-                    const result = await executeGraphQLMutation(mutation.loc?.source.body || '', { id: itemId });
-                    if (!result.error) fetchData();
-                },
-            },
-        ]);
+    const handleEdit = () => {
+        router.push(`/contact/edit?id=${id}`);
     };
 
-    const resetForms = () => {
-        setTitle('');
-        setDescription('');
-        setPriority('medium');
-        setStatus('pending');
-        setMeetingType('call');
-        setLocation('');
-        setAmount('');
-        setCategory('To Pay');
-        setEditMode('create');
-        setEditingId(null);
+    // --- Render Helpers ---
+
+    const renderTabs = () => (
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsContainer}
+            style={{ flexGrow: 0 }}
+        >
+            {['info', 'tasks', 'meetings', 'transactions'].map((tab) => (
+                <TouchableOpacity
+                    key={tab}
+                    onPress={() => setActiveTab(tab as TabType)}
+                    style={[
+                        styles.tab,
+                        activeTab === tab && styles.activeTab,
+                        activeTab === tab && { backgroundColor: theme.primary }
+                    ]}
+                >
+                    <Text style={[
+                        styles.tabText,
+                        activeTab === tab ? styles.activeTabText : { color: theme.textSecondary }
+                    ]}>
+                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </ScrollView>
+    );
+
+    const renderInfoTab = () => {
+        if (!contact) return null;
+        return (
+            <View style={styles.tabContent}>
+                <Card style={styles.infoCard} elevated>
+                    <View style={styles.infoRow}>
+                        <Ionicons name="call-outline" size={20} color={theme.textSecondary} />
+                        <Text style={[styles.infoText, { color: theme.textPrimary }]}>
+                            {contact.phone || 'No phone number'}
+                        </Text>
+                        {contact.phone && (
+                            <TouchableOpacity onPress={handleCall} style={styles.actionLink}>
+                                <Text style={[styles.actionLinkText, { color: theme.primary }]}>Call</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <View style={styles.divider} />
+                    <View style={styles.infoRow}>
+                        <Ionicons name="mail-outline" size={20} color={theme.textSecondary} />
+                        <Text style={[styles.infoText, { color: theme.textPrimary }]}>
+                            {contact.email || 'No email address'}
+                        </Text>
+                        {contact.email && (
+                            <TouchableOpacity onPress={handleEmail} style={styles.actionLink}>
+                                <Text style={[styles.actionLinkText, { color: theme.primary }]}>Email</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                    <View style={styles.divider} />
+                    <View style={styles.infoRow}>
+                        <Ionicons name="business-outline" size={20} color={theme.textSecondary} />
+                        <View>
+                            <Text style={[styles.infoText, { color: theme.textPrimary }]}>
+                                {contact.company_name || 'No Company'}
+                            </Text>
+                            {contact.designation && (
+                                <Text style={[styles.infoSubtext, { color: theme.textSecondary }]}>
+                                    {contact.designation}
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+                </Card>
+
+                {contact.notes && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Notes</Text>
+                        <Card style={styles.noteCard}>
+                            <Text style={{ color: theme.textSecondary, lineHeight: 22 }}>
+                                {contact.notes}
+                            </Text>
+                        </Card>
+                    </View>
+                )}
+
+                {contact.tags && contact.tags.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Tags</Text>
+                        <View style={styles.tagsWrapper}>
+                            {contact.tags.map((tag, idx) => (
+                                <Badge key={idx} label={tag} variant="default" style={{ backgroundColor: theme.backgroundSecondary }} />
+                            ))}
+                        </View>
+                    </View>
+                )}
+            </View>
+        );
     };
 
-    const startEdit = (item: any, type: TabType) => {
-        setEditMode('edit');
-        setEditingId(item.id);
+    const renderTasksTab = () => {
+        const tasks = contact?.tasksCollection?.edges.map(e => e.node) || [];
 
-        if (type === 'tasks') {
-            setTitle(item.title);
-            setDescription(item.description || '');
-            setPriority(item.priority || 'medium');
-            setStatus(item.status || 'pending');
-        } else if (type === 'meetings') {
-            setTitle(item.title);
-            setMeetingType(item.meeting_type || 'call');
-            setLocation(item.location || '');
-            setDescription(item.notes || '');
-        } else {
-            setAmount(item.amount.toString());
-            setCategory(item.category || 'To Pay');
-            setDescription(item.notes || '');
-            setStatus(item.status || 'pending');
-        }
-        setShowCreateModal(true);
+        return (
+            <View style={styles.tabContent}>
+                <TouchableOpacity
+                    style={[styles.addButton, { borderColor: theme.border }]}
+                    // Navigate to create task with pre-filled contact ID (Not implemented yet, just illustrative)
+                    onPress={() => router.push({ pathname: '/tasks/edit', params: { contactId: contact?.id } })}
+                >
+                    <Ionicons name="add" size={24} color={theme.primary} />
+                    <Text style={[styles.addButtonText, { color: theme.primary }]}>Add Task</Text>
+                </TouchableOpacity>
+
+                {tasks.length === 0 ? (
+                    <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No tasks yet.</Text>
+                ) : (
+                    tasks.map(task => (
+                        <Card
+                            key={task.id}
+                            style={styles.itemCard}
+                            onPress={() => router.push(`/tasks/${task.id}`)} // Route to Task Details
+                        >
+                            <View style={styles.itemRow}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.itemTitle, { color: theme.textPrimary }]}>{task.title}</Text>
+                                    <Text style={[styles.itemSubtitle, { color: theme.textSecondary }]}>
+                                        Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No Date'}
+                                    </Text>
+                                </View>
+                                <Badge
+                                    label={task.status}
+                                    variant="outline"
+                                    style={{ borderColor: theme.border }}
+                                />
+                            </View>
+                        </Card>
+                    ))
+                )}
+            </View>
+        );
     };
+
+    const renderMeetingsTab = () => {
+        const meetings = contact?.meetingsCollection?.edges.map(e => e.node) || [];
+
+        return (
+            <View style={styles.tabContent}>
+                <TouchableOpacity
+                    style={[styles.addButton, { borderColor: theme.border }]}
+                    onPress={() => router.push({ pathname: '/meetings/edit', params: { contactId: contact?.id } })}
+                >
+                    <Ionicons name="add" size={24} color={theme.primary} />
+                    <Text style={[styles.addButtonText, { color: theme.primary }]}>Schedule Meeting</Text>
+                </TouchableOpacity>
+
+                {meetings.length === 0 ? (
+                    <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No meetings scheduled.</Text>
+                ) : (
+                    meetings.map(meeting => (
+                        <Card
+                            key={meeting.id}
+                            style={styles.itemCard}
+                            onPress={() => router.push(`/meetings/${meeting.id}`)}
+                        >
+                            <View style={styles.itemRow}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.itemTitle, { color: theme.textPrimary }]}>{meeting.title}</Text>
+                                    <Text style={[styles.itemSubtitle, { color: theme.textSecondary }]}>
+                                        {new Date(meeting.scheduled_start).toLocaleString()}
+                                    </Text>
+                                </View>
+                                <Badge
+                                    label={meeting.meeting_type}
+                                    variant="default"
+                                    style={{ backgroundColor: theme.backgroundSecondary }}
+                                />
+                            </View>
+                        </Card>
+                    ))
+                )}
+            </View>
+        );
+    };
+
+    const renderTransactionsTab = () => {
+        const transactions = contact?.transactionsCollection?.edges.map(e => e.node) || [];
+
+        return (
+            <View style={styles.tabContent}>
+                <TouchableOpacity
+                    style={[styles.addButton, { borderColor: theme.border }]}
+                    onPress={() => router.push({ pathname: '/transactions/edit', params: { contactId: contact?.id } })}
+                >
+                    <Ionicons name="add" size={24} color={theme.primary} />
+                    <Text style={[styles.addButtonText, { color: theme.primary }]}>Record Transaction</Text>
+                </TouchableOpacity>
+
+                {transactions.length === 0 ? (
+                    <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No transactions recorded.</Text>
+                ) : (
+                    transactions.map(transaction => (
+                        <Card
+                            key={transaction.id}
+                            style={styles.itemCard}
+                            onPress={() => router.push(`/transactions/${transaction.id}`)}
+                        >
+                            <View style={styles.itemRow}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.itemTitle, { color: theme.textPrimary }]}>{transaction.category}</Text>
+                                    <Text style={[styles.itemSubtitle, { color: theme.textSecondary }]}>
+                                        {new Date(transaction.transaction_date).toLocaleDateString()}
+                                    </Text>
+                                </View>
+                                <Text style={[styles.amountText, { color: theme.textPrimary }]}>
+                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: transaction.currency || 'USD' }).format(transaction.amount)}
+                                </Text>
+                            </View>
+                        </Card>
+                    ))
+                )}
+            </View>
+        );
+    };
+
 
     if (loading) {
         return (
@@ -355,271 +354,166 @@ export default function ContactDetailsScreen() {
         );
     }
 
-    if (!contact) return null;
+    if (!contact) {
+        return (
+            <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
+                <Text style={{ color: theme.textSecondary }}>Contact not found.</Text>
+                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+                    <Text style={{ color: theme.primary }}>Go Back</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
+            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
 
-            <LinearGradient
-                colors={[theme.surface, theme.background]}
-                style={styles.headerGradient}
-            >
-                {/* Custom Header */}
-                <View style={[styles.navHeader, { paddingTop: Platform.OS === 'ios' ? 60 : 40 }]}>
-                    <IconButton icon="arrow-back" onPress={() => router.back()} variant="ghost" />
-                    <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Details</Text>
-                    <IconButton icon="pencil" onPress={() => setShowProfileModal(true)} variant="ghost" />
-                </View>
-
-                <View style={styles.profileHeader}>
-                    <Avatar name={contact.name} size="xl" />
-                    <Text style={[styles.profileName, { color: theme.textPrimary }]}>{contact.name}</Text>
-
-                    {(contact.designation || contact.company_name) && (
-                        <Text style={[styles.profileSubtitle, { color: theme.textSecondary }]}>
-                            {contact.designation}
-                            {contact.designation && contact.company_name ? ' • ' : ''}
-                            {contact.company_name}
-                        </Text>
-                    )}
-
-                    <View style={styles.contactRow}>
-                        {contact.phone && (
-                            <Badge label={contact.phone} variant="default" style={{ backgroundColor: theme.surface }} />
-                        )}
-                        {contact.email && (
-                            <Badge label={contact.email} variant="default" style={{ backgroundColor: theme.surface }} />
-                        )}
+            {/* Header */}
+            <View style={styles.headerContainer}>
+                <LinearGradient
+                    colors={['#FF416C', '#FF4B2B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.headerBackground}
+                />
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.topBar}>
+                        <IconButton
+                            icon="arrow-back"
+                            onPress={() => router.back()}
+                            variant="ghost"
+                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+                            color="#fff"
+                        />
+                        <View style={styles.actions}>
+                            <IconButton
+                                icon="pencil"
+                                onPress={handleEdit}
+                                variant="ghost"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+                                color="#fff"
+                            />
+                        </View>
                     </View>
-                </View>
 
-                {/* Tabs */}
-                <View style={styles.tabContainer}>
-                    {(['tasks', 'meetings', 'transactions'] as TabType[]).map((tab) => (
-                        <TouchableOpacity
-                            key={tab}
-                            style={[
-                                styles.tab,
-                                activeTab === tab && { borderBottomColor: theme.primary, borderBottomWidth: 2 }
-                            ]}
-                            onPress={() => setActiveTab(tab)}
-                        >
-                            <Text style={[
-                                styles.tabText,
-                                { color: activeTab === tab ? theme.primary : theme.textSecondary }
-                            ]}>
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {/* Profile Summary in Header */}
+                    <View style={styles.profileHeader}>
+                        <Avatar name={contact.name} size="xl" />
+                        <Text style={styles.profileName}>{contact.name}</Text>
+                        {(contact.designation || contact.company_name) && (
+                            <Text style={styles.profileSubtitle}>
+                                {contact.designation && contact.company_name
+                                    ? `${contact.designation} at ${contact.company_name}`
+                                    : (contact.designation || contact.company_name)}
                             </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Show content only if profile is completed */}
-                {!contact.is_completed_profile ? (
-                    <View style={styles.centerContainer}>
-                        <Ionicons name="information-circle-outline" size={64} color={theme.textTertiary} />
-                        <Text style={[styles.emptyText, { color: theme.textSecondary, marginBottom: spacing.lg }]}>
-                            Complete contact profile to add tasks and meetings.
-                        </Text>
-                        <Button title="Complete Profile" onPress={() => setShowProfileModal(true)} />
-                    </View>
-                ) : (
-                    <></>
-                )}
-            </LinearGradient>
-
-            {contact.is_completed_profile && (
-                <>
-                    <ScrollView
-                        contentContainerStyle={styles.content}
-                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.primary} />}
-                    >
-                        {activeTab === 'tasks' && tasks.map(task => (
-                            <Card key={task.id} style={styles.itemCard} onPress={() => startEdit(task, 'tasks')} elevated>
-                                <View style={styles.row}>
-                                    <View style={styles.itemContent}>
-                                        <Text style={[styles.itemTitle, { color: theme.textPrimary }]}>{task.title}</Text>
-                                        <Text style={[styles.itemSubtitle, { color: theme.textSecondary }]}>{task.priority} • {task.status.replace('_', ' ')}</Text>
-                                    </View>
-                                    <IconButton icon="trash-outline" variant="ghost" size="sm" onPress={() => handleDelete(task.id, 'tasks')} />
-                                </View>
-                            </Card>
-                        ))}
-
-                        {activeTab === 'meetings' && meetings.map(meeting => (
-                            <Card key={meeting.id} style={styles.itemCard} onPress={() => startEdit(meeting, 'meetings')} elevated>
-                                <View style={styles.row}>
-                                    <View style={styles.itemContent}>
-                                        <Text style={[styles.itemTitle, { color: theme.textPrimary }]}>{meeting.title}</Text>
-                                        <Text style={[styles.itemSubtitle, { color: theme.textSecondary }]}>{meeting.meeting_type} • {meeting.location || 'No location'}</Text>
-                                    </View>
-                                    <IconButton icon="trash-outline" variant="ghost" size="sm" onPress={() => handleDelete(meeting.id, 'meetings')} />
-                                </View>
-                            </Card>
-                        ))}
-
-                        {activeTab === 'transactions' && transactions.map(trans => (
-                            <Card key={trans.id} style={styles.itemCard} onPress={() => startEdit(trans, 'transactions')} elevated>
-                                <View style={styles.row}>
-                                    <View style={styles.itemContent}>
-                                        <Text style={[styles.itemTitle, { color: theme.textPrimary }]}>{trans.amount} {trans.currency}</Text>
-                                        <Text style={[styles.itemSubtitle, { color: theme.textSecondary }]}>{trans.category} • {trans.status}</Text>
-                                    </View>
-                                    <IconButton icon="trash-outline" variant="ghost" size="sm" onPress={() => handleDelete(trans.id, 'transactions')} />
-                                </View>
-                            </Card>
-                        ))}
-
-                        {/* Empty States */}
-                        {activeTab === 'tasks' && tasks.length === 0 && <Text style={[styles.emptyText, { color: theme.textTertiary }]}>No tasks found</Text>}
-                        {activeTab === 'meetings' && meetings.length === 0 && <Text style={[styles.emptyText, { color: theme.textTertiary }]}>No meetings found</Text>}
-                        {activeTab === 'transactions' && transactions.length === 0 && <Text style={[styles.emptyText, { color: theme.textTertiary }]}>No transactions found</Text>}
-                    </ScrollView>
-
-                    <AnimatedFAB
-                        icon="add"
-                        onPress={() => {
-                            resetForms();
-                            setShowCreateModal(true);
-                        }}
-                        position="bottom-right"
-                    />
-                </>
-            )}
-
-            {/* Create/Edit Modal */}
-            <Modal visible={showCreateModal} animationType="slide" presentationStyle="pageSheet">
-                <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
-                    <View style={styles.modalHeader}>
-                        <Button title="Cancel" variant="ghost" onPress={() => setShowCreateModal(false)} />
-                        <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                            {editMode === 'edit' ? 'Edit' : 'New'} {activeTab.slice(0, -1)}
-                        </Text>
-                        <Button title="Save" onPress={handleCreate} loading={creating} disabled={creating} />
-                    </View>
-
-                    <ScrollView contentContainerStyle={styles.formContent}>
-                        {/* Dynamic Form Fields based on Active Tab */}
-                        {activeTab === 'tasks' && (
-                            <>
-                                <Input label="Title" value={title} onChangeText={setTitle} placeholder="Task title" />
-                                <Input label="Description" value={description} onChangeText={setDescription} placeholder="Description" />
-                                <View style={styles.segmentedControl}>
-                                    {(['low', 'medium', 'high'] as const).map(p => (
-                                        <TouchableOpacity key={p} onPress={() => setPriority(p)} style={[styles.segment, priority === p && { backgroundColor: theme.primary }]}>
-                                            <Text style={[styles.segmentText, priority === p && { color: '#fff' }, { color: theme.textPrimary }]}>{p.toUpperCase()}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                                <Input label="Due Date" value={description} onChangeText={setDescription} placeholder="YYYY-MM-DD" />
-                                <View style={styles.segmentedControl}>
-                                    {(['pending', 'in_progress', 'completed'] as const).map(s => (
-                                        <TouchableOpacity key={s} onPress={() => setStatus(s)} style={[styles.segment, status === s && { backgroundColor: theme.primary }]}>
-                                            <Text style={[styles.segmentText, status === s && { color: '#fff' }, { color: theme.textPrimary }]}>{s.replace('_', ' ').toUpperCase()}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </>
                         )}
-                        {activeTab === 'meetings' && (
-                            <>
-                                <Input label="Title" value={title} onChangeText={setTitle} placeholder="Meeting title" />
-                                <View style={styles.segmentedControl}>
-                                    {(['call', 'video', 'in_person'] as const).map(t => (
-                                        <TouchableOpacity key={t} onPress={() => setMeetingType(t)} style={[styles.segment, meetingType === t && { backgroundColor: theme.primary }]}>
-                                            <Text style={[styles.segmentText, meetingType === t && { color: '#fff' }, { color: theme.textPrimary }]}>{t.replace('_', ' ').toUpperCase()}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                                <Input label="Location" value={location} onChangeText={setLocation} placeholder="Location / Link" />
-                                <Input label="Date" value={description} onChangeText={setDescription} placeholder="YYYY-MM-DD HH:MM" />
-                                <Input label="Notes" value={description} onChangeText={setDescription} placeholder="Meeting notes" />
-                                <View style={styles.segmentedControl}>
-                                    {(['scheduled', 'completed', 'cancelled'] as const).map(s => (
-                                        <TouchableOpacity key={s} onPress={() => setStatus(s)} style={[styles.segment, status === s && { backgroundColor: theme.primary }]}>
-                                            <Text style={[styles.segmentText, status === s && { color: '#fff' }, { color: theme.textPrimary }]}>{s.toUpperCase()}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </>
-                        )}
-                        {activeTab === 'transactions' && (
-                            <>
-                                <Input label="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0.00" />
-                                <Input label="Notes" value={description} onChangeText={setDescription} placeholder="Transaction notes" />
-                                <View style={styles.segmentedControl}>
-                                    {(['To Pay', 'To Receive'] as const).map(c => (
-                                        <TouchableOpacity key={c} onPress={() => setCategory(c)} style={[styles.segment, category === c && { backgroundColor: theme.primary }]}>
-                                            <Text style={[styles.segmentText, category === c && { color: '#fff' }, { color: theme.textPrimary }]}>{c}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                                <View style={styles.segmentedControl}>
-                                    {(['pending', 'completed', 'cancelled'] as const).map(s => (
-                                        <TouchableOpacity key={s} onPress={() => setStatus(s)} style={[styles.segment, status === s && { backgroundColor: theme.primary }]}>
-                                            <Text style={[styles.segmentText, status === s && { color: '#fff' }, { color: theme.textPrimary }]}>{s.toUpperCase()}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </>
-                        )}
-                    </ScrollView>
-                </View>
-            </Modal>
-
-            {/* Profile Edit/Complete Modal */}
-            <Modal visible={showProfileModal || (!loading && contact && !contact.is_completed_profile)} animationType="slide" presentationStyle="pageSheet">
-                <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
-                    <View style={styles.modalHeader}>
-                        {contact.is_completed_profile && <Button title="Cancel" variant="ghost" onPress={() => setShowProfileModal(false)} />}
-                        {!contact.is_completed_profile && <View />}
-                        <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                            {contact.is_completed_profile ? 'Edit Profile' : 'Complete Profile'}
-                        </Text>
-                        <Button title="Save" onPress={handleCompleteProfile} loading={creating} disabled={creating} />
                     </View>
-                    <ScrollView contentContainerStyle={styles.formContent}>
-                        <Input label="Name *" value={profileName} onChangeText={setProfileName} placeholder="Contact Name" />
-                        <Input label="Phone" value={profilePhone} onChangeText={setProfilePhone} placeholder="Phone Number" keyboardType="phone-pad" />
-                        <Input label="Email" value={profileEmail} onChangeText={setProfileEmail} placeholder="Email Address" keyboardType="email-address" />
-                        <Input label="Designation" value={profileDesignation} onChangeText={setProfileDesignation} placeholder="Designation" />
-                        <Input label="Company" value={profileCompany} onChangeText={setProfileCompany} placeholder="Company Name" />
-                        <Input label="Tags" value={profileTags} onChangeText={setProfileTags} placeholder="Tags (comma separated)" />
-                        <Input label="Notes" value={profileNotes} onChangeText={setProfileNotes} placeholder="Add notes..." multiline />
-                    </ScrollView>
-                </View>
-            </Modal>
+                </SafeAreaView>
+            </View>
+
+            {/* Content Body */}
+            <View style={styles.body}>
+                {renderTabs()}
+
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                    {activeTab === 'info' && renderInfoTab()}
+                    {activeTab === 'tasks' && renderTasksTab()}
+                    {activeTab === 'meetings' && renderMeetingsTab()}
+                    {activeTab === 'transactions' && renderTransactionsTab()}
+                </ScrollView>
+            </View>
         </View>
-
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerGradient: { paddingBottom: spacing.md },
-    navHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.md },
-    headerTitle: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.semibold },
-    profileHeader: { alignItems: 'center', paddingVertical: spacing.lg },
-    profileName: { fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.bold, marginTop: spacing.md },
-    profileSubtitle: { fontSize: typography.fontSize.base, marginTop: 4 },
-    contactRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-    tabContainer: { flexDirection: 'row', paddingHorizontal: spacing.lg, marginTop: spacing.md },
-    tab: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm },
-    tabText: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.medium },
-    content: { padding: spacing.lg, paddingBottom: 100 },
-    itemCard: { marginBottom: spacing.md },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    itemContent: { flex: 1 },
-    itemTitle: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold },
-    itemSubtitle: { fontSize: typography.fontSize.sm, marginTop: 2, textTransform: 'capitalize' },
-    emptyText: { textAlign: 'center', marginTop: spacing.xl, fontSize: typography.fontSize.base },
-    modalContainer: { flex: 1 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.md },
-    modalTitle: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold },
-    formContent: { padding: spacing.lg },
-    segmentedControl: { flexDirection: 'row', marginVertical: spacing.md, gap: spacing.sm },
-    segment: { flex: 1, padding: spacing.sm, borderRadius: borderRadius.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(150,150,150,0.2)' },
-    segmentText: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.medium },
+    headerContainer: {
+        width: '100%',
+        paddingBottom: spacing.lg,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        overflow: 'hidden',
+        backgroundColor: '#FF4B2B',
+        shadowColor: '#FF4B2B',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 5,
+        zIndex: 10,
+    },
+    headerBackground: { ...StyleSheet.absoluteFillObject },
+    safeArea: {
+        paddingTop: Platform.OS === 'android' ? 40 : 0,
+        paddingHorizontal: spacing.md,
+    },
+    topBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+        marginTop: spacing.sm,
+    },
+    actions: { flexDirection: 'row', gap: spacing.sm },
+    profileHeader: { alignItems: 'center', marginBottom: spacing.md },
+    profileName: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginTop: spacing.md },
+    profileSubtitle: { fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 4 },
+
+    body: { flex: 1 },
+    tabsContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.md,
+        gap: spacing.sm,
+    },
+    tab: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: 'transparent',
+    },
+    activeTab: {
+        // backgroundColor matches primary (set inline)
+    },
+    tabText: { fontSize: 14, fontWeight: '600' },
+    activeTabText: { color: '#fff' },
+
+    scrollContent: { padding: spacing.md, paddingBottom: 100 },
+    tabContent: { gap: spacing.md },
+
+    infoCard: { padding: spacing.md, borderRadius: 16 },
+    infoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+    infoText: { fontSize: 16, flex: 1 },
+    infoSubtext: { fontSize: 14, marginTop: 2 },
+    divider: { height: 1, backgroundColor: '#eee', marginVertical: spacing.xs },
+    actionLink: { paddingHorizontal: 12, paddingVertical: 4, backgroundColor: '#f0f9ff', borderRadius: 8 },
+    actionLinkText: { fontSize: 12, fontWeight: '600' },
+
+    section: { marginTop: spacing.lg },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: spacing.sm },
+    noteCard: { padding: spacing.md, borderRadius: 12, backgroundColor: '#f9f9f9' }, // Light gray for notes
+    tagsWrapper: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+
+    addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: spacing.md,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderRadius: 12,
+        marginBottom: spacing.sm
+    },
+    addButtonText: { fontSize: 16, fontWeight: '600', marginLeft: 8 },
+
+    emptyText: { textAlign: 'center', marginTop: spacing.lg, fontSize: 16 },
+
+    itemCard: { padding: spacing.md, borderRadius: 12, marginBottom: spacing.sm },
+    itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    itemTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+    itemSubtitle: { fontSize: 12 },
+    amountText: { fontSize: 16, fontWeight: 'bold' },
 });

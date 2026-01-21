@@ -4,25 +4,24 @@
  * Universal button with multiple variants, sizes, and animations
  */
 
+import { borderRadius, spacing, typography } from '@/constants/tokens';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    TouchableOpacity,
-    Text,
-    StyleSheet,
     ActivityIndicator,
+    StyleSheet,
+    Text,
+    TextStyle,
+    TouchableOpacity,
     View,
     ViewStyle,
-    TextStyle,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
-    withSpring,
-    withTiming,
+    withSpring
 } from 'react-native-reanimated';
-import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, borderRadius, typography } from '@/constants/tokens';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -40,7 +39,9 @@ interface ButtonProps {
     iconPosition?: 'left' | 'right';
     fullWidth?: boolean;
     style?: ViewStyle;
+    textStyle?: TextStyle;
 }
+
 
 export default function Button({
     title,
@@ -53,6 +54,7 @@ export default function Button({
     iconPosition = 'left',
     fullWidth = false,
     style,
+    textStyle: customTextStyle,
 }: ButtonProps) {
     const { theme } = useTheme();
     const scale = useSharedValue(1);
@@ -161,6 +163,7 @@ export default function Button({
                                 styles.text,
                                 variantStyles.text,
                                 { fontSize: currentSize.fontSize },
+                                customTextStyle,
                             ]}
                         >
                             {title}

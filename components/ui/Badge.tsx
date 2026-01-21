@@ -4,17 +4,17 @@
  * Tag/status badge with variants and removable option
  */
 
+import { borderRadius, spacing, typography } from '@/constants/tokens';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    View,
+    StyleSheet,
     Text,
     TouchableOpacity,
-    StyleSheet,
+    View,
     ViewStyle,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, borderRadius, typography } from '@/constants/tokens';
 
 type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'error' | 'outline' | string;
 
@@ -22,6 +22,7 @@ interface BadgeProps {
     label: string;
     variant?: BadgeVariant;
     onRemove?: () => void;
+    onPress?: () => void;
     style?: ViewStyle;
     textStyle?: any; // Allow custom text style override
 }
@@ -30,6 +31,7 @@ export default function Badge({
     label,
     variant = 'default',
     onRemove,
+    onPress,
     style,
     textStyle,
 }: BadgeProps) {
@@ -74,7 +76,7 @@ export default function Badge({
 
     const variantStyles = getVariantStyles();
 
-    return (
+    const content = (
         <View
             style={[
                 styles.badge,
@@ -100,6 +102,16 @@ export default function Badge({
             )}
         </View>
     );
+
+    if (onPress) {
+        return (
+            <TouchableOpacity onPress={onPress}>
+                {content}
+            </TouchableOpacity>
+        );
+    }
+
+    return content;
 }
 
 const styles = StyleSheet.create({

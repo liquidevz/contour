@@ -7,26 +7,25 @@
  * - Bento Grid for Contacts, Tasks, Meetings, Transactions
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Image,
-  Dimensions,
-  SafeAreaView,
-  Platform,
-  StatusBar
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import Avatar from '@/components/ui/Avatar';
+import { spacing } from '@/constants/tokens';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '@/contexts/ThemeContext';
-import { spacing, typography, borderRadius } from '@/constants/tokens';
-import Avatar from '@/components/ui/Avatar';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -130,7 +129,7 @@ export default function HomeScreen() {
           {/* Meetings Card */}
           <TouchableOpacity
             style={[styles.card, styles.cardLarge]}
-            onPress={() => { }}
+            onPress={() => router.push('/meetings')}
             activeOpacity={0.9}
           >
             <View style={styles.cardHeader}>
@@ -148,7 +147,7 @@ export default function HomeScreen() {
           {/* Transactions Card */}
           <TouchableOpacity
             style={[styles.card, styles.cardLarge]}
-            onPress={() => { }}
+            onPress={() => router.push('/transactions')}
             activeOpacity={0.9}
           >
             <View style={styles.cardHeader}>

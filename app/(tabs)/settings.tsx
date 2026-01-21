@@ -1,28 +1,31 @@
 /**
  * Settings Screen
  * 
- * App settings with:
- * - Theme toggle (Light/Dark/System)
- * - App information
- * - Sign out functionality
+ * Revamped to match the new design system:
+ * - Red Gradient Header
+ * - Consistent Card styling
  */
 
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import { borderRadius, spacing } from '@/constants/tokens';
+import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
     Alert,
+    Platform,
+    SafeAreaView,
     ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useTheme } from '@/contexts/ThemeContext';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import { spacing, typography, borderRadius } from '@/constants/tokens';
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -57,7 +60,27 @@ export default function SettingsScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
+
+            {/* Header */}
+            <View style={styles.headerContainer}>
+                <LinearGradient
+                    colors={['#FF416C', '#FF4B2B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.headerBackground}
+                />
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.topBar}>
+                        <Text style={styles.headerTitle}>Settings</Text>
+                    </View>
+                </SafeAreaView>
+            </View>
+
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.contentContainer}
+            >
                 {/* Theme Section */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
@@ -71,8 +94,9 @@ export default function SettingsScreen() {
                                     style={[
                                         styles.themeOption,
                                         {
-                                            backgroundColor: themeMode === option.value ? theme.primary + '20' : theme.backgroundSecondary,
-                                            borderColor: themeMode === option.value ? theme.primary : 'transparent',
+                                            backgroundColor: themeMode === option.value ? theme.primary + '10' : 'transparent',
+                                            borderColor: themeMode === option.value ? theme.primary : theme.border,
+                                            borderWidth: 1,
                                         },
                                     ]}
                                     onPress={() => setThemeMode(option.value)}
@@ -87,6 +111,7 @@ export default function SettingsScreen() {
                                             styles.themeLabel,
                                             {
                                                 color: themeMode === option.value ? theme.primary : theme.textSecondary,
+                                                fontWeight: themeMode === option.value ? '700' : '500'
                                             },
                                         ]}
                                     >
@@ -114,7 +139,7 @@ export default function SettingsScreen() {
                     <Card elevated padding="md">
                         <View style={styles.row}>
                             <View style={styles.rowLeft}>
-                                <Ionicons name="information-circle-outline" size={20} color={theme.textSecondary} />
+                                <Ionicons name="information-circle-outline" size={24} color={theme.primary} />
                                 <Text style={[styles.label, { color: theme.textPrimary }]}>Version</Text>
                             </View>
                             <Text style={[styles.value, { color: theme.textSecondary }]}>1.0.0</Text>
@@ -148,14 +173,49 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    headerContainer: {
+        width: '100%',
+        paddingBottom: spacing.lg,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        overflow: 'hidden',
+        backgroundColor: '#FF4B2B',
+        shadowColor: '#FF4B2B',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 5,
+        zIndex: 10,
+    },
+    headerBackground: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    safeArea: {
+        paddingTop: Platform.OS === 'android' ? 40 : 0,
+        paddingHorizontal: spacing.md,
+    },
+    topBar: {
+        marginBottom: spacing.sm,
+        marginTop: spacing.sm,
+        height: 48,
+        justifyContent: 'center'
+    },
+    headerTitle: {
+        fontSize: 34,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    contentContainer: {
         padding: spacing.lg,
+        paddingTop: spacing.lg + 20,
     },
     section: {
         marginBottom: spacing.xl,
     },
     sectionTitle: {
-        fontSize: typography.fontSize.lg,
-        fontWeight: typography.fontWeight.semibold,
+        fontSize: 18,
+        fontWeight: '600',
         marginBottom: spacing.md,
     },
     themeContainer: {
@@ -166,12 +226,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: spacing.md,
         borderRadius: borderRadius.md,
-        borderWidth: 2,
         gap: spacing.md,
     },
     themeLabel: {
-        fontSize: typography.fontSize.base,
-        fontWeight: typography.fontWeight.medium,
+        fontSize: 16,
         flex: 1,
     },
     checkmark: {
@@ -185,18 +243,19 @@ const styles = StyleSheet.create({
     rowLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing.sm,
+        gap: spacing.md,
     },
     label: {
-        fontSize: typography.fontSize.base,
+        fontSize: 16,
+        fontWeight: '500',
     },
     value: {
-        fontSize: typography.fontSize.base,
+        fontSize: 16,
     },
     footer: {
-        fontSize: typography.fontSize.sm,
+        fontSize: 12,
         textAlign: 'center',
-        marginTop: spacing.xl,
         marginBottom: spacing.xxl,
+        lineHeight: 18,
     },
 });

@@ -208,3 +208,47 @@ export const GET_TRANSACTION_DETAILS = gql`
     }
   }
 `;
+
+export const GET_ALL_MEETINGS = gql`
+  query GetAllMeetings {
+    meetingsCollection(orderBy: { scheduled_start: DescNullsLast }) {
+      edges {
+        node {
+          id
+          title
+          meeting_type
+          status
+          scheduled_start
+          location
+          created_at
+          contact: contacts {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const GET_ALL_TRANSACTIONS = gql`
+  query GetAllTransactions {
+    transactionsCollection(orderBy: { transaction_date: DescNullsLast }) {
+      edges {
+        node {
+          id
+          amount
+          currency
+          category
+          status
+          transaction_date
+          created_at
+          contact: contacts {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
