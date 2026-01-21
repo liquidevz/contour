@@ -67,7 +67,7 @@ export default function ContactsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Contact Picker State
-  const [allPhoneContacts, setAllPhoneContacts] = useState<Contacts.Contact[]>([]);
+  const [allPhoneContacts, setAllPhoneContacts] = useState<Contacts.ExistingContact[]>([]);
   const [contactListModalVisible, setContactListModalVisible] = useState(false);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
 
