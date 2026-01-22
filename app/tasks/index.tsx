@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '@/components/ui/Avatar';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
-import IconButton from '@/components/ui/IconButton';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GET_ALL_TASKS } from '@/graphql/queries';
@@ -52,6 +52,7 @@ export default function TasksScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -76,7 +77,11 @@ export default function TasksScreen() {
     const filteredTasks = tasks.filter(task => {
         const priorityMatch = priorityFilter === 'all' || task.priority === priorityFilter;
         const statusMatch = statusFilter === 'all' || task.status === statusFilter;
-        return priorityMatch && statusMatch;
+        const searchMatch = !searchQuery.trim() ||
+            task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            task.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            task.contact?.name.toLowerCase().includes(searchQuery.toLowerCase());
+        return priorityMatch && statusMatch && searchMatch;
     });
 
     const getPriorityColor = (p: string) => {
@@ -104,21 +109,18 @@ export default function TasksScreen() {
                 backgroundColor={theme.headerBackground}
             />
 
-            {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + spacing.sm, backgroundColor: theme.headerBackground }]}>
-                <View style={styles.headerTop}>
-                    <IconButton
-                        icon="arrow-back"
-                        onPress={() => router.back()}
-                        variant="ghost"
-                        style={{ backgroundColor: theme.backgroundSecondary }}
-                        color={theme.textPrimary}
-                    />
-                    <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Tasks</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+            <ScreenHeader
+                subtitle="View details"
+                title="Tasks"
+                onBack={() => router.back()}
+                showSearch={true}
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                searchPlaceholder="Search tasks..."
+            />
 
-                {/* Priority Filters */}
+            {/* Filter Container */}
+            <View style={styles.filterContainer}>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -256,20 +258,10 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: {
+    filterContainer: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: spacing.md,
-    },
-    headerTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.md
-    },
-    headerTitle: {
-        fontSize: typography.fontSize['2xl'],
-        fontWeight: typography.fontWeight.bold,
-        letterSpacing: typography.letterSpacing.tight,
+        paddingVertical: spacing.md,
+        gap: spacing.sm,
     },
     filterScroll: { marginBottom: spacing.sm },
     filterContent: { gap: spacing.sm },

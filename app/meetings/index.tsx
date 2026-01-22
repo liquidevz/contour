@@ -4,14 +4,6 @@
  * Clean meeting list with modern cards
  */
 
-import Avatar from '@/components/ui/Avatar';
-import Badge from '@/components/ui/Badge';
-import Card from '@/components/ui/Card';
-import IconButton from '@/components/ui/IconButton';
-import { borderRadius, spacing, typography } from '@/constants/tokens';
-import { useTheme } from '@/contexts/ThemeContext';
-import { GET_ALL_MEETINGS } from '@/graphql/queries';
-import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -26,6 +18,15 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import Avatar from '@/components/ui/Avatar';
+import Badge from '@/components/ui/Badge';
+import Card from '@/components/ui/Card';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import { borderRadius, spacing, typography } from '@/constants/tokens';
+import { useTheme } from '@/contexts/ThemeContext';
+import { GET_ALL_MEETINGS } from '@/graphql/queries';
+import { executeGraphQL } from '@/lib/graphql';
 
 interface Meeting {
     id: string;
@@ -47,6 +48,7 @@ export default function MeetingsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [meetings, setMeetings] = useState<Meeting[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const fetchMeetings = async (isRefresh = false) => {
         if (isRefresh) setRefreshing(true);
@@ -64,6 +66,13 @@ export default function MeetingsScreen() {
     useEffect(() => {
         fetchMeetings();
     }, []);
+
+    const filteredMeetings = meetings.filter(meeting => {
+        if (!searchQuery.trim()) return true;
+        return meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            meeting.meeting_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            meeting.contact?.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -87,20 +96,15 @@ export default function MeetingsScreen() {
                 backgroundColor={theme.headerBackground}
             />
 
-            {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + spacing.sm, backgroundColor: theme.headerBackground }]}>
-                <View style={styles.headerTop}>
-                    <IconButton
-                        icon="arrow-back"
-                        onPress={() => router.back()}
-                        variant="ghost"
-                        style={{ backgroundColor: theme.backgroundSecondary }}
-                        color={theme.textPrimary}
-                    />
-                    <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Meetings</Text>
-                    <View style={{ width: 40 }} />
-                </View>
-            </View>
+            <ScreenHeader
+                subtitle="View details"
+                title="Meetings"
+                onBack={() => router.back()}
+                showSearch={true}
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                searchPlaceholder="Search meetings..."
+            />
 
             {/* List */}
             {loading ? (
@@ -119,7 +123,7 @@ export default function MeetingsScreen() {
                     }
                     showsVerticalScrollIndicator={false}
                 >
-                    {meetings.length === 0 ? (
+                    {filteredMeetings.length === 0 ? (
                         <View style={styles.emptyState}>
                             <View style={[styles.emptyIcon, { backgroundColor: theme.backgroundSecondary }]}>
                                 <Ionicons name="calendar-outline" size={48} color={theme.textTertiary} />
@@ -130,7 +134,7 @@ export default function MeetingsScreen() {
                             </Text>
                         </View>
                     ) : (
-                        meetings.map((meeting, index) => (
+                        filteredMeetings.map((meeting, index) => (
                             <Animated.View
                                 key={meeting.id}
                                 entering={FadeInDown.delay(index * 30).springify()}
@@ -182,20 +186,6 @@ export default function MeetingsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: {
-        paddingHorizontal: spacing.lg,
-        paddingBottom: spacing.lg,
-    },
-    headerTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    headerTitle: {
-        fontSize: typography.fontSize['2xl'],
-        fontWeight: typography.fontWeight.bold,
-        letterSpacing: typography.letterSpacing.tight,
-    },
     listContent: { padding: spacing.md },
     emptyState: { alignItems: 'center', marginTop: 80 },
     emptyIcon: {

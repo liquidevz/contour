@@ -5,21 +5,26 @@
  */
 
 import Avatar from '@/components/ui/Avatar';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GET_CONTACTS } from '@/graphql/queries';
 import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import * as Contacts from 'expo-contacts';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
+  Animated,
   FlatList,
+  RefreshControl,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -47,26 +52,48 @@ export default function ContactsScreen() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [fabExpanded, setFabExpanded] = useState(false);
 
-  useEffect(() => {
-    fetchContacts();
-  }, []);
+  // Animation values
+  const fabRotation = useRef(new Animated.Value(0)).current;
+  const button1Scale = useRef(new Animated.Value(0)).current; // Import button
+  const button2Scale = useRef(new Animated.Value(0)).current; // Add button
+
+  // Refresh contacts when screen comes into focus (e.g., after adding a contact)
+  useFocusEffect(
+    useCallback(() => {
+      fetchContacts();
+    }, [])
+  );
 
   useEffect(() => {
     handleSearch(searchQuery);
   }, [searchQuery, contacts]);
 
-  const fetchContacts = async () => {
-    setLoading(true);
+
+  const fetchContacts = async (isRefreshing = false) => {
+    if (isRefreshing) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
     const result = await executeGraphQL(GET_CONTACTS.loc?.source.body || '');
     if (result.data?.contactsCollection?.edges) {
       const contactList = result.data.contactsCollection.edges.map((edge: any) => edge.node);
       setContacts(contactList);
       setFilteredContacts(contactList);
     }
+
     setLoading(false);
+    setRefreshing(false);
+  };
+
+  const onRefresh = () => {
+    fetchContacts(true);
   };
 
   const handleSearch = (query: string) => {
@@ -85,6 +112,52 @@ export default function ContactsScreen() {
 
   const handleContactPress = (contactId: string) => {
     router.push(`/contact/${contactId}`);
+  };
+
+  const toggleFAB = () => {
+    const toValue = fabExpanded ? 0 : 1;
+
+    Animated.parallel([
+      Animated.spring(fabRotation, {
+        toValue,
+        useNativeDriver: true,
+        tension: 40,
+        friction: 7,
+      }),
+      Animated.stagger(50, [
+        Animated.spring(button1Scale, {
+          toValue,
+          useNativeDriver: true,
+          tension: 40,
+          friction: 7,
+        }),
+        Animated.spring(button2Scale, {
+          toValue,
+          useNativeDriver: true,
+          tension: 40,
+          friction: 7,
+        }),
+      ]),
+    ]).start();
+
+    setFabExpanded(!fabExpanded);
+  };
+
+  const handleImportContacts = async () => {
+    toggleFAB();
+
+    const { status } = await Contacts.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need contacts permission to import contacts.');
+      return;
+    }
+
+    router.push('/contact/import');
+  };
+
+  const handleManualAdd = () => {
+    toggleFAB();
+    router.push('/contact/edit');
   };
 
   const getContactSubtitle = (contact: Contact) => {
@@ -147,41 +220,18 @@ export default function ContactsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity style={styles.menuButton}>
-            <Ionicons name="ellipsis-horizontal" size={24} color={theme.textPrimary} />
-          </TouchableOpacity>
+      <ScreenHeader
+        subtitle="View details"
+        title="Contacts"
+        onBack={() => router.back()}
+        showSearch={true}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search contacts..."
+      />
 
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Ionicons name="camera-outline" size={24} color={theme.textPrimary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: theme.accent }]}
-              onPress={() => router.push('/contact/edit')}
-            >
-              <Ionicons name="add" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <Text style={[styles.screenTitle, { color: theme.textPrimary }]}>Contacts</Text>
-
-        {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: theme.backgroundSecondary }]}>
-          <Ionicons name="search" size={20} color={theme.textTertiary} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.textPrimary }]}
-            placeholder="Search contacts..."
-            placeholderTextColor={theme.textTertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        {/* Filter Tabs */}
+      {/* Filters */}
+      <View style={styles.filtersContainer}>
         <View style={styles.filterTabs}>
           {filterTabs.map((tab) => (
             <TouchableOpacity
@@ -227,7 +277,82 @@ export default function ContactsScreen() {
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        }
       />
+      {/* Floating Action Buttons */}
+      {fabExpanded && (
+        <TouchableOpacity
+          style={[styles.overlay]}
+          activeOpacity={1}
+          onPress={toggleFAB}
+        />
+      )}
+
+      {/* Add Contact Button - Top */}
+      <Animated.View
+        style={[
+          styles.fabWithLabel,
+          {
+            bottom: 100,
+            right: 24,
+            opacity: button2Scale,
+            transform: [{ scale: button2Scale }],
+          },
+        ]}
+        pointerEvents={fabExpanded ? 'auto' : 'none'}
+      >
+        <Text style={styles.fabLabelLeft}>Add Contact</Text>
+        <TouchableOpacity
+          style={[styles.subFabButton, { backgroundColor: theme.accent }]}
+          onPress={handleManualAdd}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="person-add-outline" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Import Button - Bottom */}
+      <Animated.View
+        style={[
+          styles.fabWithLabel,
+          {
+            bottom: 24,
+            right: 24,
+            opacity: button1Scale,
+            transform: [{ scale: button1Scale }],
+          },
+        ]}
+        pointerEvents={fabExpanded ? 'auto' : 'none'}
+      >
+        <Text style={styles.fabLabelLeft}>Import</Text>
+        <TouchableOpacity
+          style={[styles.subFabButton, { backgroundColor: '#FFFFFF' }]}
+          onPress={handleImportContacts}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="cloud-download-outline" size={24} color={theme.accent} />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Main FAB - Hides when expanded */}
+      {!fabExpanded && (
+        <View style={styles.fab}>
+          <TouchableOpacity
+            style={[styles.fabButton, { backgroundColor: theme.accent }]}
+            onPress={toggleFAB}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -236,53 +361,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
+  filtersContainer: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.md,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  menuButton: {
-    padding: spacing.xs,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  iconButton: {
-    padding: spacing.xs,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  screenTitle: {
-    fontSize: 36,
-    fontWeight: '700',
-    marginBottom: spacing.md,
-    letterSpacing: -0.5,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: typography.fontSize.base,
-    marginLeft: spacing.sm,
-    fontWeight: typography.fontWeight.normal,
   },
   filterTabs: {
     flexDirection: 'row',
@@ -346,5 +428,69 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.normal,
     flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+  },
+  fabButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabWithLabel: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  subFab: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  subFabButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  fabLabelLeft: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    color: '#FFFFFF',
+  },
+  fabLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    color: '#FFFFFF',
+    overflow: 'hidden',
   },
 });

@@ -1,7 +1,7 @@
 /**
  * ScreenHeader Component - Compact with Theme Switching
  * 
- * Smaller header with rounded bottom, theme-aware colors
+ * Header with rounded bottom corners, inverted colors, and optional search
  */
 
 import { spacing } from '@/constants/tokens';
@@ -13,8 +13,9 @@ import {
     Dimensions,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from './Avatar';
@@ -33,7 +34,13 @@ interface ScreenHeaderProps {
     showAvatar?: boolean;
     showNotifications?: boolean;
     userName?: string;
+    // Search props
+    showSearch?: boolean;
+    searchValue?: string;
+    onSearchChange?: (text: string) => void;
+    searchPlaceholder?: string;
 }
+
 
 export default function ScreenHeader({
     title,
@@ -46,19 +53,23 @@ export default function ScreenHeader({
     showAvatar = true,
     showNotifications = true,
     userName = 'User',
+    showSearch = false,
+    searchValue = '',
+    onSearchChange,
+    searchPlaceholder = 'Search...',
 }: ScreenHeaderProps) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { colorScheme } = useTheme();
 
-    // Light mode: Black bg, White text
-    // Dark mode: White bg, Black text
+    // Inverted colors: if app is dark, header is light and vice versa
     const isDark = colorScheme === 'dark';
     const headerBg = isDark ? '#FFFFFF' : '#000000';
     const textColor = isDark ? '#000000' : '#FFFFFF';
     const subtitleColor = isDark ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)';
     const iconColor = isDark ? '#000000' : '#FFFFFF';
     const accentColor = '#10B981';
+
 
     return (
         <View
@@ -143,13 +154,31 @@ export default function ScreenHeader({
                             onPress={() => router.push('/(tabs)/settings')}
                             style={styles.avatarButton}
                         >
-                            <View style={[styles.avatarWrapper, { borderColor: iconColor }]}>
+                            <View style={styles.avatarWrapper}>
                                 <Avatar name={userName} size="sm" />
                             </View>
                         </TouchableOpacity>
                     )}
                 </View>
             </View>
+
+            {/* Search Bar (optional) */}
+            {showSearch && (
+                <View style={[styles.searchContainer, {
+                    backgroundColor: isDark ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.15)',
+                    marginTop: spacing.md,
+                    marginHorizontal: spacing.lg,
+                }]}>
+                    <Ionicons name="search" size={18} color={subtitleColor} />
+                    <TextInput
+                        style={[styles.searchInput, { color: textColor }]}
+                        placeholder={searchPlaceholder}
+                        placeholderTextColor={subtitleColor}
+                        value={searchValue}
+                        onChangeText={onSearchChange}
+                    />
+                </View>
+            )}
         </View>
     );
 }
@@ -219,11 +248,23 @@ const styles = StyleSheet.create({
         padding: spacing.xs,
     },
     avatarWrapper: {
-        borderWidth: 2,
-        borderRadius: 20,
+        // Avatar already has its own styling
     },
     actionText: {
         fontSize: 16,
         fontWeight: '700',
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: 20,
+        gap: spacing.sm,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        fontWeight: '400',
     },
 });
