@@ -111,6 +111,8 @@ export default function Input({
         }
     };
 
+    const { multiline } = textInputProps;
+
     return (
         <View style={[styles.container, containerStyle]}>
             {label && (
@@ -123,7 +125,12 @@ export default function Input({
                 style={[
                     styles.inputContainer,
                     getVariantStyles(),
-                    { height: currentSize.height },
+                    {
+                        height: multiline ? 'auto' : currentSize.height,
+                        minHeight: currentSize.height,
+                        alignItems: multiline ? 'flex-start' : 'center',
+                        paddingVertical: multiline ? spacing.sm : 0,
+                    },
                     borderAnimStyle,
                 ]}
             >
@@ -132,7 +139,7 @@ export default function Input({
                         name={leftIcon}
                         size={currentSize.iconSize}
                         color={isFocused ? theme.textPrimary : theme.textTertiary}
-                        style={styles.leftIcon}
+                        style={[styles.leftIcon, multiline && { marginTop: 4 }]}
                     />
                 )}
 
@@ -143,6 +150,7 @@ export default function Input({
                         {
                             color: theme.textPrimary,
                             fontSize: currentSize.fontSize,
+                            textAlignVertical: multiline ? 'top' : 'center',
                         },
                         style,
                     ]}

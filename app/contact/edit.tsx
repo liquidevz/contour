@@ -196,7 +196,7 @@ export default function EditContactScreen() {
                         onChangeText={setNotes}
                         multiline
                         numberOfLines={4}
-                        style={{ minHeight: 100, textAlignVertical: 'top' }}
+                        style={{ minHeight: 120, textAlignVertical: 'top' }}
                     />
                 </ScrollView>
             </KeyboardAvoidingView>
