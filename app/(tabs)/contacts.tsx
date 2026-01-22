@@ -13,12 +13,14 @@ import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Contacts from 'expo-contacts';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
   FlatList,
+  Platform,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -26,7 +28,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 interface Contact {
   id: string;
@@ -35,6 +37,7 @@ interface Contact {
   phone: string;
   company_name: string;
   designation: string;
+  is_completed_profile: boolean;
   last_contact_date?: string;
   tags?: string[];
 }
@@ -110,8 +113,17 @@ export default function ContactsScreen() {
     setFilteredContacts(filtered);
   };
 
-  const handleContactPress = (contactId: string) => {
-    router.push(`/contact/${contactId}`);
+  const handleContactPress = (contact: Contact) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
+    // If profile is incomplete, redirect to edit page
+    if (!contact.is_completed_profile) {
+      router.push(`/contact/edit?id=${contact.id}`);
+    } else {
+      router.push(`/contact/${contact.id}`);
+    }
   };
 
   const toggleFAB = () => {
@@ -141,6 +153,9 @@ export default function ContactsScreen() {
     ]).start();
 
     setFabExpanded(!fabExpanded);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
   };
 
   const handleImportContacts = async () => {
@@ -156,6 +171,9 @@ export default function ContactsScreen() {
   };
 
   const handleManualAdd = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     toggleFAB();
     router.push('/contact/edit');
   };
@@ -186,7 +204,7 @@ export default function ContactsScreen() {
   const renderContact = ({ item }: { item: Contact }) => (
     <TouchableOpacity
       style={[styles.contactItem, { borderBottomColor: theme.border }]}
-      onPress={() => handleContactPress(item.id)}
+      onPress={() => handleContactPress(item)}
       activeOpacity={0.7}
     >
       <Avatar name={item.name} size="md" />
@@ -196,11 +214,14 @@ export default function ContactsScreen() {
           <Text style={[styles.contactName, { color: theme.textPrimary }]} numberOfLines={1}>
             {item.name}
           </Text>
-          {item.last_contact_date && (
+          {/* Status Indicator */}
+          {!item.is_completed_profile ? (
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.error, marginLeft: 8 }} />
+          ) : item.last_contact_date ? (
             <Text style={[styles.timeText, { color: theme.textTertiary }]}>
               {getTimeAgo(item.last_contact_date)}
             </Text>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.subtitleRow}>
@@ -217,8 +238,12 @@ export default function ContactsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar
+        barStyle={colorScheme === 'dark' ? 'dark-content' : 'light-content'}
+        backgroundColor="transparent"
+        translucent
+      />
 
       <ScreenHeader
         subtitle="View details"
@@ -244,7 +269,12 @@ export default function ContactsScreen() {
                     : theme.backgroundSecondary
                 }
               ]}
-              onPress={() => setActiveFilter(tab.id)}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setActiveFilter(tab.id);
+              }}
             >
               <Text
                 style={[
@@ -264,7 +294,14 @@ export default function ContactsScreen() {
         </View>
 
         {/* Archived */}
-        <TouchableOpacity style={styles.archivedRow}>
+        <TouchableOpacity
+          style={styles.archivedRow}
+          onPress={() => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }}
+        >
           <Ionicons name="archive-outline" size={20} color={theme.textTertiary} />
           <Text style={[styles.archivedText, { color: theme.textTertiary }]}>Archived</Text>
         </TouchableOpacity>
@@ -353,7 +390,7 @@ export default function ContactsScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

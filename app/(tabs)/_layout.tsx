@@ -7,6 +7,7 @@
 import { typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
@@ -55,6 +56,13 @@ export default function TabLayout() {
             />
           ),
         }}
+        listeners={{
+          tabPress: () => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          },
+        }}
       />
       <Tabs.Screen
         name="contacts"
@@ -69,6 +77,13 @@ export default function TabLayout() {
             />
           ),
         }}
+        listeners={{
+          tabPress: () => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          },
+        }}
       />
       <Tabs.Screen
         name="settings"
@@ -82,6 +97,13 @@ export default function TabLayout() {
               color={color}
             />
           ),
+        }}
+        listeners={{
+          tabPress: () => {
+            if (Platform.OS !== 'web') {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          },
         }}
       />
     </Tabs>

@@ -5,10 +5,12 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Platform,
     RefreshControl,
     ScrollView,
     StatusBar,
@@ -105,8 +107,9 @@ export default function TasksScreen() {
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
             <StatusBar
-                barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-                backgroundColor={theme.headerBackground}
+                barStyle={colorScheme === 'dark' ? 'dark-content' : 'light-content'}
+                backgroundColor="transparent"
+                translucent
             />
 
             <ScreenHeader
@@ -130,7 +133,12 @@ export default function TasksScreen() {
                     {PRIORITIES.map(p => (
                         <TouchableOpacity
                             key={p}
-                            onPress={() => setPriorityFilter(p)}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }
+                                setPriorityFilter(p);
+                            }}
                             style={[
                                 styles.filterChip,
                                 {
@@ -158,7 +166,12 @@ export default function TasksScreen() {
                     {STATUSES.map(s => (
                         <TouchableOpacity
                             key={s}
-                            onPress={() => setStatusFilter(s)}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }
+                                setStatusFilter(s);
+                            }}
                             style={[
                                 styles.filterChip,
                                 {

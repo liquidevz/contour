@@ -7,14 +7,16 @@
 
 import { borderRadius, elevation, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GET_ALL_TASKS, GET_CONTACTS } from '@/graphql/queries';
+import { GET_ALL_MEETINGS, GET_ALL_TASKS, GET_ALL_TRANSACTIONS, GET_CONTACTS } from '@/graphql/queries';
 import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import React, { useCallback, useState } from 'react';
 import {
   Dimensions,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -39,6 +41,8 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [contactsCount, setContactsCount] = useState(0);
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   const fetchStats = async () => {
     try {
@@ -72,7 +76,134 @@ export default function HomeScreen() {
   };
 
   const navigateToContacts = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     router.push('/(tabs)/contacts');
+  };
+
+  // Search functionality
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    try {
+      const results: any[] = [];
+      const lowerQuery = query.toLowerCase();
+
+      // Search contacts
+      const contactsResult = await executeGraphQL(GET_CONTACTS.loc?.source.body || '');
+      if (contactsResult.data?.contactsCollection?.edges) {
+        const contacts = contactsResult.data.contactsCollection.edges
+          .map((e: any) => e.node)
+          .filter((contact: any) =>
+            contact.name?.toLowerCase().includes(lowerQuery) ||
+            contact.email?.toLowerCase().includes(lowerQuery) ||
+            contact.phone?.includes(query)
+          )
+          .map((contact: any) => ({
+            type: 'contact',
+            id: contact.id,
+            title: contact.name,
+            subtitle: contact.designation || contact.company_name || contact.email,
+            icon: 'person' as const,
+          }));
+        results.push(...contacts.slice(0, 3));
+      }
+
+      // Search tasks
+      const tasksResult = await executeGraphQL(GET_ALL_TASKS.loc?.source.body || '', {});
+      if (tasksResult.data?.tasksCollection?.edges) {
+        const tasks = tasksResult.data.tasksCollection.edges
+          .map((e: any) => e.node)
+          .filter((task: any) =>
+            task.title?.toLowerCase().includes(lowerQuery) ||
+            task.description?.toLowerCase().includes(lowerQuery)
+          )
+          .map((task: any) => ({
+            type: 'task',
+            id: task.id,
+            title: task.title,
+            subtitle: task.status || 'Task',
+            icon: 'checkbox' as const,
+          }));
+        results.push(...tasks.slice(0, 3));
+      }
+
+      // Search meetings
+      const meetingsResult = await executeGraphQL(GET_ALL_MEETINGS.loc?.source.body || '', {});
+      if (meetingsResult.data?.meetingsCollection?.edges) {
+        const meetings = meetingsResult.data.meetingsCollection.edges
+          .map((e: any) => e.node)
+          .filter((meeting: any) =>
+            meeting.title?.toLowerCase().includes(lowerQuery) ||
+            meeting.location?.toLowerCase().includes(lowerQuery)
+          )
+          .map((meeting: any) => ({
+            type: 'meeting',
+            id: meeting.id,
+            title: meeting.title,
+            subtitle: meeting.location || 'Meeting',
+            icon: 'calendar' as const,
+          }));
+        results.push(...meetings.slice(0, 3));
+      }
+
+      // Search transactions
+      const transactionsResult = await executeGraphQL(GET_ALL_TRANSACTIONS.loc?.source.body || '', {});
+      if (transactionsResult.data?.transactionsCollection?.edges) {
+        const transactions = transactionsResult.data.transactionsCollection.edges
+          .map((e: any) => e.node)
+          .filter((transaction: any) =>
+            transaction.category?.toLowerCase().includes(lowerQuery) ||
+            transaction.notes?.toLowerCase().includes(lowerQuery)
+          )
+          .map((transaction: any) => ({
+            type: 'transaction',
+            id: transaction.id,
+            title: transaction.category || 'Transaction',
+            subtitle: `${transaction.currency || '$'} ${transaction.amount}`,
+            icon: 'card' as const,
+          }));
+        results.push(...transactions.slice(0, 3));
+      }
+
+      setSearchResults(results);
+      setShowSearchResults(results.length > 0);
+    } catch (error) {
+      console.error('Search error:', error);
+    }
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    performSearch(text);
+  };
+
+  const handleSearchResultPress = (result: any) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setShowSearchResults(false);
+    setSearchQuery('');
+
+    switch (result.type) {
+      case 'contact':
+        router.push(`/contact/${result.id}`);
+        break;
+      case 'task':
+        router.push(`/tasks/${result.id}`);
+        break;
+      case 'meeting':
+        router.push(`/meetings/${result.id}`);
+        break;
+      case 'transaction':
+        router.push(`/transactions/${result.id}`);
+        break;
+    }
   };
 
   // Bento card configurations
@@ -92,7 +223,12 @@ export default function HomeScreen() {
       icon: 'checkbox' as const,
       lottie: require('@/assets/animations/Task Loader.json'),
       lottieStyle: { width: 260, height: 260, bottom: -85, right: -85 },
-      onPress: () => router.push('/tasks'),
+      onPress: () => {
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        router.push('/tasks');
+      },
       accent: theme.accent,
     },
     {
@@ -101,7 +237,12 @@ export default function HomeScreen() {
       icon: 'calendar' as const,
       lottie: require('@/assets/animations/meeting.json'),
       lottieStyle: { width: 500, height: 500, bottom: -220, right: -200 },
-      onPress: () => router.push('/meetings'),
+      onPress: () => {
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        router.push('/meetings');
+      },
       accent: theme.textPrimary,
     },
     {
@@ -110,7 +251,12 @@ export default function HomeScreen() {
       icon: 'card' as const,
       lottie: require('@/assets/animations/Money.json'),
       lottieStyle: { width: 200, height: 200, bottom: -75, right: -40 },
-      onPress: () => router.push('/transactions'),
+      onPress: () => {
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        router.push('/transactions');
+      },
       accent: theme.textSecondary,
     },
   ];
@@ -130,7 +276,14 @@ export default function HomeScreen() {
             <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Dashboard</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={[styles.notificationBtn, { backgroundColor: theme.backgroundSecondary }]}>
+            <TouchableOpacity
+              style={[styles.notificationBtn, { backgroundColor: theme.backgroundSecondary }]}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+              }}
+            >
               <Ionicons name="notifications-outline" size={22} color={theme.textPrimary} />
             </TouchableOpacity>
             <Avatar name="User" size="md" />
@@ -141,10 +294,51 @@ export default function HomeScreen() {
         <View style={styles.searchWrapper}>
           <SearchBar
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
             placeholder="Search contacts, tasks..."
             showMicIcon
+            onClear={() => {
+              setSearchQuery('');
+              setShowSearchResults(false);
+            }}
           />
+
+          {/* Search Results */}
+          {showSearchResults && searchResults.length > 0 && (
+            <View style={[styles.searchResults, { backgroundColor: theme.cardBackground, ...elevation.lg }]}>
+              <ScrollView
+                style={styles.searchResultsScroll}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {searchResults.map((result, index) => (
+                  <TouchableOpacity
+                    key={`${result.type}-${result.id}`}
+                    style={[
+                      styles.searchResultItem,
+                      { borderBottomColor: theme.border },
+                      index === searchResults.length - 1 && styles.searchResultItemLast
+                    ]}
+                    onPress={() => handleSearchResultPress(result)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.searchResultIcon, { backgroundColor: theme.backgroundSecondary }]}>
+                      <Ionicons name={result.icon} size={20} color={theme.textPrimary} />
+                    </View>
+                    <View style={styles.searchResultInfo}>
+                      <Text style={[styles.searchResultTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                        {result.title}
+                      </Text>
+                      <Text style={[styles.searchResultSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+                        {result.subtitle}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
       </View>
 
@@ -231,6 +425,12 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={[styles.featuredCard, { backgroundColor: theme.textPrimary }]}
             activeOpacity={0.9}
+            onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              }
+              router.push('/contact/import');
+            }}
           >
             <View style={styles.featuredContent}>
               <View style={[styles.featuredIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
@@ -251,6 +451,12 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={[styles.actionCard, { backgroundColor: theme.backgroundSecondary }]}
             activeOpacity={0.8}
+            onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              router.push('/contact/edit');
+            }}
           >
             <View style={styles.featuredContent}>
               <View style={[styles.featuredIcon, { backgroundColor: theme.surface }]}>
@@ -419,6 +625,47 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   actionSubtitle: {
+    fontSize: typography.fontSize.sm,
+  },
+  searchResults: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    maxHeight: 300,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    zIndex: 1000,
+  },
+  searchResultsScroll: {
+    maxHeight: 300,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  searchResultItemLast: {
+    borderBottomWidth: 0,
+  },
+  searchResultIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchResultInfo: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  searchResultTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  searchResultSubtitle: {
     fontSize: typography.fontSize.sm,
   },
 });

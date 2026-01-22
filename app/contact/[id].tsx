@@ -5,23 +5,21 @@
  * Uses a tabbed interface (Custom Segmented Control) to switch between views.
  */
 
-import Avatar from '@/components/ui/Avatar'; // Assuming Avatar component exists
 import Badge from '@/components/ui/Badge'; // Assuming Badge component exists
 import Card from '@/components/ui/Card'; // Assuming Card component exists
-import IconButton from '@/components/ui/IconButton'; // Assuming IconButton component exists
+import ScreenHeader from '@/components/ui/ScreenHeader';
 import { spacing } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GET_CONTACT_DASHBOARD } from '@/graphql/queries';
 import { executeGraphQL } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Linking,
     Platform,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -75,7 +73,7 @@ type TabType = 'info' | 'tasks' | 'meetings' | 'transactions';
 export default function ContactDetailsScreen() {
     const { id } = useLocalSearchParams(); // Get ID from route params
     const router = useRouter();
-    const { theme } = useTheme();
+    const { theme, colorScheme } = useTheme();
     const [loading, setLoading] = useState(true);
     const [contact, setContact] = useState<ContactDetails | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('info');
@@ -110,10 +108,16 @@ export default function ContactDetailsScreen() {
     }, [id]);
 
     const handleCall = () => {
+        if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         if (contact?.phone) Linking.openURL(`tel:${contact.phone}`);
     };
 
     const handleEmail = () => {
+        if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         if (contact?.email) Linking.openURL(`mailto:${contact.email}`);
     };
 
@@ -133,7 +137,12 @@ export default function ContactDetailsScreen() {
             {['info', 'tasks', 'meetings', 'transactions'].map((tab) => (
                 <TouchableOpacity
                     key={tab}
-                    onPress={() => setActiveTab(tab as TabType)}
+                    onPress={() => {
+                        if (Platform.OS !== 'web') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                        setActiveTab(tab as TabType);
+                    }}
                     style={[
                         styles.tab,
                         activeTab === tab && styles.activeTab,
@@ -228,7 +237,12 @@ export default function ContactDetailsScreen() {
                 <TouchableOpacity
                     style={[styles.addButton, { borderColor: theme.border }]}
                     // Navigate to create task with pre-filled contact ID (Not implemented yet, just illustrative)
-                    onPress={() => router.push({ pathname: '/tasks/edit', params: { contactId: contact?.id } })}
+                    onPress={() => {
+                        if (Platform.OS !== 'web') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                        router.push({ pathname: '/tasks/edit', params: { contactId: contact?.id } });
+                    }}
                 >
                     <Ionicons name="add" size={24} color={theme.primary} />
                     <Text style={[styles.addButtonText, { color: theme.primary }]}>Add Task</Text>
@@ -270,7 +284,12 @@ export default function ContactDetailsScreen() {
             <View style={styles.tabContent}>
                 <TouchableOpacity
                     style={[styles.addButton, { borderColor: theme.border }]}
-                    onPress={() => router.push({ pathname: '/meetings/edit', params: { contactId: contact?.id } })}
+                    onPress={() => {
+                        if (Platform.OS !== 'web') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                        router.push({ pathname: '/meetings/edit', params: { contactId: contact?.id } });
+                    }}
                 >
                     <Ionicons name="add" size={24} color={theme.primary} />
                     <Text style={[styles.addButtonText, { color: theme.primary }]}>Schedule Meeting</Text>
@@ -312,7 +331,12 @@ export default function ContactDetailsScreen() {
             <View style={styles.tabContent}>
                 <TouchableOpacity
                     style={[styles.addButton, { borderColor: theme.border }]}
-                    onPress={() => router.push({ pathname: '/transactions/edit', params: { contactId: contact?.id } })}
+                    onPress={() => {
+                        if (Platform.OS !== 'web') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                        router.push({ pathname: '/transactions/edit', params: { contactId: contact?.id } });
+                    }}
                 >
                     <Ionicons name="add" size={24} color={theme.primary} />
                     <Text style={[styles.addButtonText, { color: theme.primary }]}>Record Transaction</Text>
@@ -358,7 +382,15 @@ export default function ContactDetailsScreen() {
         return (
             <View style={[styles.centerContainer, { backgroundColor: theme.background }]}>
                 <Text style={{ color: theme.textSecondary }}>Contact not found.</Text>
-                <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+                <TouchableOpacity
+                    onPress={() => {
+                        if (Platform.OS !== 'web') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                        router.back();
+                    }}
+                    style={{ marginTop: 20 }}
+                >
                     <Text style={{ color: theme.primary }}>Go Back</Text>
                 </TouchableOpacity>
             </View>
@@ -368,50 +400,29 @@ export default function ContactDetailsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
-            <StatusBar barStyle="light-content" backgroundColor="#FF4B2B" />
+            <StatusBar barStyle={colorScheme === 'dark' ? 'dark-content' : 'light-content'} backgroundColor="transparent" translucent />
 
-            {/* Header */}
-            <View style={styles.headerContainer}>
-                <LinearGradient
-                    colors={['#FF416C', '#FF4B2B']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.headerBackground}
-                />
-                <SafeAreaView style={styles.safeArea}>
-                    <View style={styles.topBar}>
-                        <IconButton
-                            icon="arrow-back"
-                            onPress={() => router.back()}
-                            variant="ghost"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-                            color="#fff"
-                        />
-                        <View style={styles.actions}>
-                            <IconButton
-                                icon="pencil"
-                                onPress={handleEdit}
-                                variant="ghost"
-                                style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-                                color="#fff"
-                            />
-                        </View>
-                    </View>
-
-                    {/* Profile Summary in Header */}
-                    <View style={styles.profileHeader}>
-                        <Avatar name={contact.name} size="xl" />
-                        <Text style={styles.profileName}>{contact.name}</Text>
-                        {(contact.designation || contact.company_name) && (
-                            <Text style={styles.profileSubtitle}>
-                                {contact.designation && contact.company_name
-                                    ? `${contact.designation} at ${contact.company_name}`
-                                    : (contact.designation || contact.company_name)}
-                            </Text>
-                        )}
-                    </View>
-                </SafeAreaView>
-            </View>
+            <ScreenHeader
+                title={contact.name}
+                subtitle={contact.designation && contact.company_name
+                    ? `${contact.designation} at ${contact.company_name}`
+                    : (contact.designation || contact.company_name || '')}
+                onBack={() => {
+                    if (Platform.OS !== 'web') {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                    router.back();
+                }}
+                onAction={() => {
+                    if (Platform.OS !== 'web') {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                    handleEdit();
+                }}
+                actionIcon="pencil"
+                customAvatarName={contact.name}
+                showNotifications={false}
+            />
 
             {/* Content Body */}
             <View style={styles.body}>
@@ -431,36 +442,8 @@ export default function ContactDetailsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerContainer: {
-        width: '100%',
-        paddingBottom: spacing.lg,
-        borderBottomLeftRadius: 32,
-        borderBottomRightRadius: 32,
-        overflow: 'hidden',
-        backgroundColor: '#FF4B2B',
-        shadowColor: '#FF4B2B',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 20,
-        elevation: 5,
-        zIndex: 10,
-    },
-    headerBackground: { ...StyleSheet.absoluteFillObject },
-    safeArea: {
-        paddingTop: Platform.OS === 'android' ? 40 : 0,
-        paddingHorizontal: spacing.md,
-    },
-    topBar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.md,
-        marginTop: spacing.sm,
-    },
-    actions: { flexDirection: 'row', gap: spacing.sm },
-    profileHeader: { alignItems: 'center', marginBottom: spacing.md },
-    profileName: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginTop: spacing.md },
-    profileSubtitle: { fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 4 },
+    profileHeader: { alignItems: 'center', marginBottom: spacing.md, marginTop: spacing.md },
+
 
     body: { flex: 1 },
     tabsContainer: {

@@ -11,12 +11,14 @@ import { CREATE_CONTACT } from '@/graphql/mutations';
 import { executeGraphQLMutation } from '@/lib/graphql';
 import { Ionicons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
+import * as Haptics from 'expo-haptics';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Platform,
     StatusBar,
     StyleSheet,
     Text,
@@ -71,6 +73,9 @@ export default function ImportContactsScreen() {
     };
 
     const toggleSelectAll = () => {
+        if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         const allSelected = deviceContacts.every(c => c.selected);
         setDeviceContacts(prev =>
             prev.map(contact => ({ ...contact, selected: !allSelected }))
@@ -78,6 +83,9 @@ export default function ImportContactsScreen() {
     };
 
     const handleImport = async () => {
+        if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
         const selectedContacts = deviceContacts.filter(c => c.selected);
 
         if (selectedContacts.length === 0) {
@@ -134,7 +142,12 @@ export default function ImportContactsScreen() {
     const renderContact = ({ item }: { item: DeviceContact }) => (
         <TouchableOpacity
             style={[styles.contactItem, { borderBottomColor: theme.border }]}
-            onPress={() => toggleContact(item.id)}
+            onPress={() => {
+                if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                toggleContact(item.id);
+            }}
             activeOpacity={0.7}
         >
             <View style={[
@@ -164,7 +177,7 @@ export default function ImportContactsScreen() {
         return (
             <View style={[styles.container, { backgroundColor: theme.background }]}>
                 <Stack.Screen options={{ headerShown: false }} />
-                <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
+                <StatusBar barStyle={colorScheme === 'dark' ? 'dark-content' : 'light-content'} />
                 <ScreenHeader
                     title="Import Contacts"
                     subtitle="Select contacts"
@@ -183,7 +196,7 @@ export default function ImportContactsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
-            <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
+            <StatusBar barStyle={colorScheme === 'dark' ? 'dark-content' : 'light-content'} />
 
             <ScreenHeader
                 title="Import Contacts"

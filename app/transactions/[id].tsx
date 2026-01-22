@@ -94,8 +94,9 @@ export default function TransactionDetailsScreen() {
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Stack.Screen options={{ headerShown: false }} />
             <StatusBar
-                barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-                backgroundColor={theme.headerBackground}
+                barStyle={colorScheme === 'dark' ? 'dark-content' : 'light-content'}
+                backgroundColor="transparent"
+                translucent
             />
 
             <ScreenHeader

@@ -7,10 +7,12 @@
 import { spacing } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
     Dimensions,
+    Platform,
     StyleSheet,
     Text,
     TextInput,
@@ -34,6 +36,7 @@ interface ScreenHeaderProps {
     showAvatar?: boolean;
     showNotifications?: boolean;
     userName?: string;
+    customAvatarName?: string; // Custom name for avatar (e.g., contact name)
     // Search props
     showSearch?: boolean;
     searchValue?: string;
@@ -53,6 +56,7 @@ export default function ScreenHeader({
     showAvatar = true,
     showNotifications = true,
     userName = 'User',
+    customAvatarName,
     showSearch = false,
     searchValue = '',
     onSearchChange,
@@ -78,7 +82,7 @@ export default function ScreenHeader({
                 {
                     backgroundColor: headerBg,
                     minHeight: HEADER_HEIGHT,
-                    paddingTop: insets.top + spacing.sm,
+                    paddingTop: insets.top + spacing.md,
                     paddingBottom: spacing.lg,
                 }
             ]}
@@ -89,7 +93,12 @@ export default function ScreenHeader({
                 <View style={styles.leftSection}>
                     {onBack && (
                         <TouchableOpacity
-                            onPress={onBack}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }
+                                onBack();
+                            }}
                             style={styles.backButton}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
@@ -117,7 +126,12 @@ export default function ScreenHeader({
                     {/* Action button (Save/Edit icon) */}
                     {onAction && (
                         <TouchableOpacity
-                            onPress={onAction}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }
+                                onAction();
+                            }}
                             style={styles.iconButton}
                             disabled={actionLoading}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -140,7 +154,11 @@ export default function ScreenHeader({
                     {/* Notifications */}
                     {showNotifications && (
                         <TouchableOpacity
-                            onPress={() => { }}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }
+                            }}
                             style={styles.iconButton}
                         >
                             <Ionicons name="notifications-outline" size={24} color={iconColor} />
@@ -151,11 +169,16 @@ export default function ScreenHeader({
                     {/* Avatar */}
                     {showAvatar && (
                         <TouchableOpacity
-                            onPress={() => router.push('/(tabs)/settings')}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }
+                                router.push('/(tabs)/settings');
+                            }}
                             style={styles.avatarButton}
                         >
                             <View style={styles.avatarWrapper}>
-                                <Avatar name={userName} size="sm" />
+                                <Avatar name={customAvatarName || userName} size="sm" />
                             </View>
                         </TouchableOpacity>
                     )}

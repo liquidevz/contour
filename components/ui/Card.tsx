@@ -6,12 +6,14 @@
 
 import { borderRadius, elevation, spacing } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
+import * as Haptics from 'expo-haptics';
 import React from 'react';
 import {
+    Platform,
     StyleSheet,
     TouchableOpacity,
     View,
-    ViewStyle,
+    ViewStyle
 } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -59,6 +61,13 @@ export default function Card({
         }
     };
 
+    const handlePress = () => {
+        if (onPress && Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        onPress?.();
+    };
+
     // Variant styles
     const getVariantStyles = (): ViewStyle => {
         switch (variant) {
@@ -90,7 +99,7 @@ export default function Card({
 
     return (
         <CardWrapper
-            onPress={onPress}
+            onPress={handlePress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             disabled={!onPress}

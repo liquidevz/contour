@@ -10,10 +10,12 @@ import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Alert,
+    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -88,7 +90,12 @@ export default function SettingsScreen() {
                                             borderBottomColor: theme.border
                                         },
                                     ]}
-                                    onPress={() => setThemeMode(option.value)}
+                                    onPress={() => {
+                                        if (Platform.OS !== 'web') {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        }
+                                        setThemeMode(option.value);
+                                    }}
                                     activeOpacity={0.7}
                                 >
                                     <View style={styles.themeOptionLeft}>

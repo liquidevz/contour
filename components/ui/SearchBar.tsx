@@ -64,6 +64,9 @@ export default function SearchBar({
     };
 
     const handleClear = () => {
+        if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         onChangeText('');
         onClear?.();
         inputRef.current?.focus();
@@ -127,7 +130,14 @@ export default function SearchBar({
             )}
 
             {showMicIcon && value.length === 0 && (
-                <TouchableOpacity style={styles.micButton}>
+                <TouchableOpacity
+                    style={styles.micButton}
+                    onPress={() => {
+                        if (Platform.OS !== 'web') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }
+                    }}
+                >
                     <Ionicons
                         name="mic"
                         size={20}
