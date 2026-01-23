@@ -6,9 +6,11 @@
  */
 
 import { borderRadius, elevation, spacing, typography } from '@/constants/tokens';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GET_ALL_MEETINGS, GET_ALL_TASKS, GET_ALL_TRANSACTIONS, GET_CONTACTS } from '@/graphql/queries';
 import { executeGraphQL } from '@/lib/graphql';
+import { checkProfileCompletion } from '@/lib/profile';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -27,7 +29,9 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import ProfileCompletionModal from '@/components/ProfileCompletionModal';
 import Avatar from '@/components/ui/Avatar';
+import ScreenScrollView from '@/components/ui/ScreenScrollView';
 import SearchBar from '@/components/ui/SearchBar';
 
 const { width } = Dimensions.get('window');
@@ -36,6 +40,7 @@ const CARD_WIDTH = (width - spacing.lg * 2 - CARD_GAP) / 2;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { profile } = useAuth();
   const { theme, colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,6 +48,7 @@ export default function HomeScreen() {
   const [pendingTasksCount, setPendingTasksCount] = useState(0);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const fetchStats = async () => {
     try {
@@ -67,7 +73,11 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchStats();
-    }, [])
+      // Show profile completion modal if profile is incomplete
+      if (profile && !profile.is_complete) {
+        setShowProfileModal(true);
+      }
+    }, [profile])
   );
 
   const navigateTo = (route: string) => {
@@ -286,7 +296,16 @@ export default function HomeScreen() {
             >
               <Ionicons name="notifications-outline" size={22} color={theme.textPrimary} />
             </TouchableOpacity>
-            <Avatar name="User" size="md" />
+            <TouchableOpacity
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                router.push('/profile/index');
+              }}
+            >
+              <Avatar name="User" size="md" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -343,9 +362,9 @@ export default function HomeScreen() {
       </View>
 
       {/* Main Content */}
-      <ScrollView
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 100 }]}
-        showsVerticalScrollIndicator={false}
+      <ScreenScrollView
+        contentContainerStyle={styles.contentContainer}
+        bottomPadding={100}
       >
         {/* Quick Stats */}
         <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.statsRow}>
@@ -474,7 +493,31 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={20} color={theme.textTertiary} />
           </TouchableOpacity>
         </Animated.View>
-      </ScrollView>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerTitle, { color: theme.textTertiary }]}>Make</Text>
+          <Text style={[styles.footerTitle, { color: theme.textTertiary }]}>it happen!</Text>
+          <View style={styles.footerCredit}>
+            <Text style={[styles.footerText, { color: theme.textTertiary }]}>
+              Crafted with <Ionicons name="heart" size={12} color="#F87171" /> in Thane, India
+            </Text>
+          </View>
+        </View>
+      </ScreenScrollView>
+
+      {/* Profile Completion Modal */}
+      {profile && (
+        <ProfileCompletionModal
+          visible={showProfileModal}
+          completionStatus={checkProfileCompletion(profile)}
+          onComplete={() => {
+            setShowProfileModal(false);
+            router.push('/profile/edit' as any);
+          }}
+          onDismiss={() => setShowProfileModal(false)}
+        />
+      )}
     </View>
   );
 }
@@ -667,5 +710,26 @@ const styles = StyleSheet.create({
   },
   searchResultSubtitle: {
     fontSize: typography.fontSize.sm,
+  },
+  footer: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.xl,
+    alignItems: 'flex-start',
+    opacity: 0.8,
+  },
+  footerTitle: {
+    fontSize: 60,
+    fontWeight: '900',
+    letterSpacing: -2,
+    lineHeight: 60,
+  },
+  footerCredit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+  },
+  footerText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
   },
 });

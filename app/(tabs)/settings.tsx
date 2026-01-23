@@ -73,6 +73,43 @@ export default function SettingsScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 40 }]}
             >
+                {/* Profile Section */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                        PROFILE
+                    </Text>
+                    <Card elevated padding="none">
+                        <TouchableOpacity
+                            style={styles.profileOption}
+                            onPress={() => {
+                                if (Platform.OS !== 'web') {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }
+                                router.push('/profile/index');
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.profileOptionLeft}>
+                                <View style={[styles.iconWrapper, { backgroundColor: theme.backgroundSecondary }]}>
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={20}
+                                        color={theme.textSecondary}
+                                    />
+                                </View>
+                                <Text style={[styles.profileLabel, { color: theme.textPrimary }]}>
+                                    View Profile
+                                </Text>
+                            </View>
+                            <Ionicons
+                                name="chevron-forward"
+                                size={20}
+                                color={theme.textTertiary}
+                            />
+                        </TouchableOpacity>
+                    </Card>
+                </View>
+
                 {/* Appearance Section */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
@@ -225,6 +262,21 @@ const styles = StyleSheet.create({
     },
     themeLabel: {
         fontSize: typography.fontSize.base,
+    },
+    profileOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: spacing.md,
+    },
+    profileOptionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    profileLabel: {
+        fontSize: typography.fontSize.base,
+        fontWeight: typography.fontWeight.medium,
     },
     aboutRow: {
         flexDirection: 'row',

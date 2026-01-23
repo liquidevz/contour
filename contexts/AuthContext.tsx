@@ -8,17 +8,22 @@
  * - signIn, signUp, signOut methods
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import { getProfile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
+import { Profile } from '@/types/profile';
+import { Session, User } from '@supabase/supabase-js';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
     user: User | null;
     session: Session | null;
+    profile: Profile | null;
+    profileLoading: boolean;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
     signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<void>;
+    refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,13 +35,21 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
+    const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [profileLoading, setProfileLoading] = useState(false);
 
     useEffect(() => {
         // Get initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
             setUser(session?.user ?? null);
+
+            // Load profile if user exists
+            if (session?.user) {
+                loadProfile(session.user.id);
+            }
+
             setLoading(false);
         });
 
@@ -45,6 +58,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             async (_event, session) => {
                 setSession(session);
                 setUser(session?.user ?? null);
+
+                // Load profile when user signs in
+                if (session?.user) {
+                    await loadProfile(session.user.id);
+                } else {
+                    setProfile(null);
+                }
+
                 setLoading(false);
             }
         );
@@ -53,6 +74,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
             subscription.unsubscribe();
         };
     }, []);
+
+    const loadProfile = async (userId: string) => {
+        setProfileLoading(true);
+        const { data } = await getProfile(userId);
+        if (data) {
+            setProfile(data);
+        }
+        setProfileLoading(false);
+    };
+
+    const refreshProfile = async () => {
+        if (user) {
+            await loadProfile(user.id);
+        }
+    };
 
     /**
      * Sign in with email and password
@@ -86,10 +122,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const value = {
         user,
         session,
+        profile,
+        profileLoading,
         loading,
         signIn,
         signUp,
         signOut,
+        refreshProfile,
     };
 
     return (

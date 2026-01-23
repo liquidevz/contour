@@ -173,7 +173,7 @@ export default function ScreenHeader({
                                 if (Platform.OS !== 'web') {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                 }
-                                router.push('/(tabs)/settings');
+                                router.push('/profile/index');
                             }}
                             style={styles.avatarButton}
                         >

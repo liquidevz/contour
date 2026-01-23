@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { borderRadius, spacing, typography } from '@/constants/tokens';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { createProfile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 
 import Button from '@/components/ui/Button';
@@ -83,6 +84,14 @@ export default function SignupScreen() {
         if (error) {
             Alert.alert('Signup Failed', error.message);
         } else {
+            // Get the newly created user
+            const { data: { user } } = await supabase.auth.getUser();
+
+            // Create initial profile
+            if (user) {
+                await createProfile(user.id);
+            }
+
             Alert.alert(
                 'Check Your Email',
                 'We sent you a confirmation link. Please verify your email to continue.',

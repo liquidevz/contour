@@ -59,15 +59,6 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="contact/[id]"
-          options={{
-            headerShown: true,
-            headerStyle: { backgroundColor: theme.surface },
-            headerTintColor: theme.textPrimary,
-            headerTitle: 'Contact Details',
-          }}
-        />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </NavThemeProvider>

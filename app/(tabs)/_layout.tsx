@@ -11,9 +11,11 @@ import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -24,13 +26,14 @@ export default function TabLayout() {
           backgroundColor: theme.tabBarBackground,
           borderTopColor: theme.border,
           borderTopWidth: 0.5,
-          height: Platform.OS === 'ios' ? 88 : 65,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-          paddingTop: 10,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom + 4,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: typography.fontSize.xs,
           fontWeight: typography.fontWeight.medium,
+          marginBottom: 4,
         },
         headerStyle: {
           backgroundColor: theme.headerBackground,
