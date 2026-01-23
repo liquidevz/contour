@@ -301,7 +301,8 @@ export default function HomeScreen() {
                 if (Platform.OS !== 'web') {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }
-                router.push('/profile/index');
+                // @ts-ignore
+                router.push('/profile');
               }}
             >
               <Avatar name="User" size="md" />
