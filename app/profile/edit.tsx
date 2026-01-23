@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography } from '@/constants/tokens';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { checkProfileCompletion, getProfile, markProfileComplete, updateProfile } from '@/lib/profile';
+import { checkProfileCompletion, createProfile, getProfile, markProfileComplete, updateProfile } from '@/lib/profile';
 import { Profile } from '@/types/profile';
 
 import Button from '@/components/ui/Button';
@@ -109,6 +109,25 @@ export default function ProfileEditPage() {
             bio: bio.trim(),
             is_public: isPublic,
         };
+
+        let currentProfile = profile;
+
+        if (!currentProfile) {
+            // Profile doesn't exist, create it first
+            const { data: newProfile, error: createError } = await createProfile(user.id, {
+                username: username.trim(),
+                display_name: displayName.trim()
+            });
+            if (createError) {
+                Alert.alert('Error', 'Failed to create profile: ' + createError.message);
+                setSaving(false);
+                return;
+            }
+            if (newProfile) {
+                currentProfile = newProfile;
+                setProfile(newProfile);
+            }
+        }
 
         const { data, error } = await updateProfile(user.id, updates);
 

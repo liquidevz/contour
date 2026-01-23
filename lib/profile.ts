@@ -24,13 +24,27 @@ export async function getProfile(userId: string): Promise<{ data?: Profile; erro
                         is_public
                         created_at
                         is_complete
+                        profile_tagsCollection {
+                            edges {
+                                node {
+                                    id
+                                    tags {
+                                        id
+                                        name
+                                        normalized_name
+                                        tag_type
+                                        usage_count
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     `;
 
-    const result = await executeGraphQL<{ profilesCollection: { edges: Array<{ node: Profile }> } }>(
+    const result = await executeGraphQL<{ profilesCollection: { edges: Array<{ node: any }> } }>(
         query,
         { userId }
     );
@@ -39,10 +53,21 @@ export async function getProfile(userId: string): Promise<{ data?: Profile; erro
         return { error: result.error };
     }
 
-    const profile = result.data?.profilesCollection?.edges[0]?.node;
-    if (!profile) {
+    const profileData = result.data?.profilesCollection?.edges[0]?.node;
+    if (!profileData) {
         return { error: new Error('Profile not found') };
     }
+
+    // Map the nested collection to a flat array for the frontend
+    const profile: Profile = {
+        ...profileData,
+        tags: profileData.profile_tagsCollection?.edges.map((e: any) => ({
+            id: e.node.id, // profile_tag_id
+            tag_id: e.node.tags?.id,
+            profile_id: userId,
+            tag: e.node.tags
+        })) || []
+    };
 
     return { data: profile };
 }
@@ -50,11 +75,20 @@ export async function getProfile(userId: string): Promise<{ data?: Profile; erro
 /**
  * Create initial profile for new user
  */
-export async function createProfile(userId: string): Promise<{ data?: Profile; error?: Error }> {
+/**
+ * Create initial profile for new user
+ */
+export async function createProfile(userId: string, initialData?: { username?: string, email?: string, display_name?: string }): Promise<{ data?: Profile; error?: Error }> {
+    // Generate default username from email if not provided
+    const username = initialData?.username || (initialData?.email ? initialData.email.split('@')[0] : `user_${Math.floor(Math.random() * 10000)}`);
+    const displayName = initialData?.display_name || (initialData?.email ? initialData.email.split('@')[0] : 'User');
+
     const mutation = `
-        mutation CreateProfile($userId: UUID!) {
+        mutation CreateProfile($userId: UUID!, $username: String!, $displayName: String!) {
             insertIntoprofilesCollection(objects: [{
                 id: $userId
+                username: $username
+                display_name: $displayName
                 is_public: true
                 is_complete: false
             }]) {
@@ -74,7 +108,7 @@ export async function createProfile(userId: string): Promise<{ data?: Profile; e
 
     const result = await executeGraphQLMutation<{ insertIntoprofilesCollection: { records: Profile[] } }>(
         mutation,
-        { userId }
+        { userId, username, displayName }
     );
 
     if (result.error) {

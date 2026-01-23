@@ -89,7 +89,7 @@ export default function SignupScreen() {
 
             // Create initial profile
             if (user) {
-                await createProfile(user.id);
+                await createProfile(user.id, { email });
             }
 
             Alert.alert(
